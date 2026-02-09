@@ -47,7 +47,7 @@
 #define FONT_POS 2.5 //字体位置
 
 //信息区绘制位置常量
-#define INFO_SIZE 400	//信息区大小
+#define INFO_SIZE 450	//信息区大小
 
 //棋盘状态常量
 #define EMPTY 0	//无棋子
@@ -58,9 +58,10 @@
 
 //美工常量
 #define FONT_WEIGHT 700	//字体粗细
-#define BUTTON_SIZE 40	//按钮大小
+#define BUTTON_SIZE 45	//按钮大小
 #define BUTTON_GAP	10	//按钮间隔
 #define BUTTON_POS 2.5	//按钮高度位置
+#define ELEMENT_GAP 10	//元素间隔
 
 //时间常量
 #define TIME_LIMIT_TOTAL 600 //总时长限制10分钟
@@ -94,24 +95,31 @@ struct NetworkMessage {
 
 //初始设定公共变量
 int highlightX = -1, highlightY = -1;	//记录高光坐标
+
+//时间公共变量
 time_t game_start_time;	//游戏开始时间
 time_t turn_start_time;	//回合开始时间
+static int turn_passed_last = 0;	//记录已经扣除的时间
+int time_total_black = TIME_LIMIT_TOTAL;	//黑方总剩余时间
+int time_total_white = TIME_LIMIT_TOTAL;	//白方总剩余时间
 int game_remain_time;	//游戏剩余时间
 int turn_remain_time;	//回合剩余时间
 bool game_time_running;	//计时器是否运行
+bool player_time_running = true;	//是否有玩家总时间耗尽
 
 //图片公共变量
 IMAGE img_start_background, img_game_background, img_info_background;	//背景图片
 IMAGE img_white, img_white_opp, img_black, img_black_opp;	//棋子图片
 
 //游戏坐标公共变量
-int button_restart_x = BOARD_SIZE + BUTTON_GAP + BUTTON_SIZE / 2;	//重新开始按钮X坐标
-int button_takeback_x = BOARD_SIZE + BUTTON_GAP + BUTTON_SIZE + BUTTON_GAP + BUTTON_SIZE / 2;	//悔棋按钮X坐标
-int button_exit_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//退出按钮X坐标
-int button_setting_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//设置按钮X坐标
-int button_music_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//音乐按钮X坐标
+int button_restart_x = BOARD_SIZE + BUTTON_GAP + BUTTON_SIZE / 2;	//重新开始按钮X坐标 -> 第一个按钮
+int button_takeback_x = BOARD_SIZE + BUTTON_GAP + BUTTON_SIZE + BUTTON_GAP + BUTTON_SIZE / 2;	//悔棋按钮X坐标 -> 第二个按钮
+int button_exit_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//退出按钮X坐标	-> 第五个按钮
+int button_setting_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//设置按钮X坐标 -> 第四个按钮
+int button_music_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//音乐按钮X坐标 -> 第三个按钮
 
 //游戏功能相关公共变量
+int game_mode;	//游戏模式
 int music_flag = 1;	//音乐是否开启标识
 char choice;	//用于让界面暂停
 
@@ -141,11 +149,12 @@ void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]);	//清理高光函数（局�
 void Player_Point(int player);	//玩家指向函数
 
 void Turn_Timer_Start();	//回合计时初始化函数
-void Turn_Timer_Update();	//回合剩余时间计算函数
+void Turn_Timer_Update(int player);	//回合剩余时间计算函数
 void Turn_Draw_Timer(int player);	//绘制倒计时函数
 
 void Draw_Gaming_Elements();	//绘制棋盘其他元素
-int Judge_Win(int Board[LINE_NUM][LINE_NUM], int x, int y, int player);	//判断游戏结束函数（这里的X，Y代表的是现在下的棋的位置，因为其实只有现在下的棋改变了棋盘的状态，提高搜索效率）
+int Judge_Win_Chess(int Board[LINE_NUM][LINE_NUM], int x, int y, int player);	//判断游戏结束函数（这里的X，Y代表的是现在下的棋的位置，因为其实只有现在下的棋改变了棋盘的状态，提高搜索效率）
+int Judge_Win_Timer(int player);	//时间判断游戏结束函数
 
 //3、游戏玩法函数声明
 void Take_Back_Move();
@@ -176,17 +185,21 @@ void Texture_Load() {
 
 void Game_Music_Control(ExMessage msg) {
 
-	if (Is_InCirecle(msg.x, msg.y, button_music_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE/2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN && music_flag == 0) {
-		mciSendString(_T("play ./素材/music1.mp3 repeat"), NULL, 0, NULL);    //重复播放音乐
-		music_flag = 1;
-		printf_s("开启音乐");
-	}
-	else if (Is_InCirecle(msg.x, msg.y, button_music_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE / 2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN && music_flag == 1) {
-		mciSendString(_T("stop bgm"), NULL, 0, NULL);    //关闭播放音乐
-		music_flag = 0;
-		printf_s("关闭音乐");
-	}
+	if (Is_InCirecle(msg.x, msg.y, button_music_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE/2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN) {
 
+		if (music_flag == 0) {
+			mciSendString(_T("close GameBGM"), NULL, 0, NULL);	//检测防止音乐重复打开
+			mciSendString(_T("open ./素材/music1.mp3 alias GameBGM"), NULL, 0, NULL); 
+			mciSendString(_T("play GameBGM repeat"), NULL, 0, NULL);	//重复播放音乐
+			music_flag = 1;
+			printf_s("开启音乐\n");
+		}
+		else if (music_flag == 1) {
+			mciSendString(_T("stop GameBGM"), NULL, 0, NULL);    //关闭播放音乐
+			music_flag = 0;
+			printf_s("关闭音乐\n");
+		}
+	}
 }
 
 void Put_Transparent_Image(int x, int y, const IMAGE* mask, const IMAGE* img) {
@@ -284,6 +297,7 @@ void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]) {
 	//2、现画笔设置
 	setlinecolor(BLACK);
 	setfillcolor(BLACK);
+	setlinestyle(PS_SOLID, 1);
 
 	//3、获得高光中心坐标
 	setorigin(0, 0);	//设置新坐标原点
@@ -311,11 +325,21 @@ void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]) {
 	line(centerX, startY, centerX, endY);	// 竖线
 
 	//4.3、重新绘制星位点
-	if (centerX == BOARD_ORIGIN_X - DOT_POS && centerY == BOARD_ORIGIN_Y - DOT_POS) solidcircle(BOARD_ORIGIN_X - DOT_POS, BOARD_ORIGIN_Y - DOT_POS, DOT_RADIUS);	//左上角星位点
-	else if (centerX == BOARD_ORIGIN_X + DOT_POS && centerY == BOARD_ORIGIN_Y - DOT_POS) solidcircle(BOARD_ORIGIN_X + DOT_POS, BOARD_ORIGIN_Y - DOT_POS, DOT_RADIUS);	//右上角星位点
-	else if (centerX == BOARD_ORIGIN_X - DOT_POS && centerY == BOARD_ORIGIN_Y + DOT_POS) solidcircle(BOARD_ORIGIN_X - DOT_POS, BOARD_ORIGIN_Y + DOT_POS, DOT_RADIUS);	//左下角星位点
-	else if (centerX == BOARD_ORIGIN_X + DOT_POS && centerY == BOARD_ORIGIN_Y + DOT_POS) solidcircle(BOARD_ORIGIN_X + DOT_POS, BOARD_ORIGIN_Y + DOT_POS, DOT_RADIUS);	//右下角星位点
-	else if (centerX == BOARD_ORIGIN_X && centerY == BOARD_ORIGIN_Y) solidcircle(BOARD_ORIGIN_X, BOARD_ORIGIN_Y, DOT_RADIUS);	//中心星位点
+	if (centerX == BOARD_ORIGIN_X - DOT_POS && centerY == BOARD_ORIGIN_Y - DOT_POS) {
+		solidcircle(BOARD_ORIGIN_X - DOT_POS, BOARD_ORIGIN_Y - DOT_POS, DOT_RADIUS);	//左上角星位点
+	}
+	else if (centerX == BOARD_ORIGIN_X + DOT_POS && centerY == BOARD_ORIGIN_Y - DOT_POS) {
+		solidcircle(BOARD_ORIGIN_X + DOT_POS, BOARD_ORIGIN_Y - DOT_POS, DOT_RADIUS);	//右上角星位点
+	}
+	else if (centerX == BOARD_ORIGIN_X - DOT_POS && centerY == BOARD_ORIGIN_Y + DOT_POS) {
+		solidcircle(BOARD_ORIGIN_X - DOT_POS, BOARD_ORIGIN_Y + DOT_POS, DOT_RADIUS);	//左下角星位点
+	}
+	else if (centerX == BOARD_ORIGIN_X + DOT_POS && centerY == BOARD_ORIGIN_Y + DOT_POS) {
+		solidcircle(BOARD_ORIGIN_X + DOT_POS, BOARD_ORIGIN_Y + DOT_POS, DOT_RADIUS);	//右下角星位点
+	}
+	else if (centerX == BOARD_ORIGIN_X && centerY == BOARD_ORIGIN_Y) {
+		solidcircle(BOARD_ORIGIN_X, BOARD_ORIGIN_Y, DOT_RADIUS);	//中心星位点
+	}
 
 	//5、恢复初始设置
 	setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y);	//恢复原有坐标
@@ -360,6 +384,7 @@ void Turn_Timer_Start() {
 	//1、重置回合时间
 	turn_start_time = time(NULL);	//记录回合开始时间
 	turn_remain_time = TIME_LIMIT;	//重置回合剩余时间
+	turn_passed_last = 0;			//重置本回合记录秒数
 	game_time_running = true;	//设置计时器状态为开启
 
 	//2、清理上次计时区域
@@ -391,18 +416,52 @@ void Turn_Timer_Start() {
 	outtextxy(timer_white_x, timer_white_y, _T("回合剩余：30秒"));	//绘制白棋重置倒计时文字
 }
 
-void Turn_Timer_Update() {
+void Turn_Timer_Update(int player) {
 
 	if (!game_time_running)	return;	//检查计时器是否启动，没启动提早返回
 
-	//1、获取剩余时间
+	//1、更新剩余时间
 	time_t current_time = time(NULL);	//记录现在时间
 	turn_remain_time = TIME_LIMIT - (int)difftime(current_time, turn_start_time);	//difftime(time1,time2)，time1为较晚时间，time2为较早时间，返回的是double类型，所以要int
 
-	//2、判断是否关闭计时器
+	int used_time = TIME_LIMIT - turn_remain_time;	//该回合使用的时间
+	if (used_time < 0) {
+		used_time = 0;
+	}
+	if (used_time > TIME_LIMIT) {
+		used_time = TIME_LIMIT;
+	}
+
+	//2、更新总时间
+	int delta = used_time - turn_passed_last;	//计算新增时间 = 总共使用时间 - 已经扣除的时间
+	if (delta < 0) {
+		delta = 0;
+	}
+	turn_passed_last = used_time;	//现在的总共使用时间，变成了已经扣除的时间
+
+	if (delta > 0) {
+		if (player == BLACK) {
+			time_total_black -= delta;
+			if (time_total_black <= 0) {
+				time_total_black = 0;
+			}
+		}
+		else if (player == WHITE) {
+			time_total_white -= delta;
+			if (time_total_white <= 0) {
+				time_total_white = 0;
+			}
+		}
+	}
+
+	//3、判断是否关闭计时器
 	if (turn_remain_time < 0) {
 		turn_remain_time = 0;	//重置剩余时间
 		game_time_running = false;	//关闭计时器，防止溢出
+	}
+
+	if (time_total_black == 0 || time_total_white == 0) {
+		player_time_running = false;	//有玩家时间耗尽，游戏结束
 	}
 }
 
@@ -410,12 +469,30 @@ void Turn_Draw_Timer(int player) {
 
 	//1、清理上次计时区域
 	setorigin(0, 0);	//设置坐标原点
-	int round_time_sizex = PIECE_SIZE * 8 * 0.75 / 2;	//回合计时区大小
-	int round_time_sizey = PIECE_SIZE / 2;
-	int timer_black_x = BOARD_SIZE + FONT_POS * 2 + PIECE_SIZE + 5;	//加5略微靠右
+	//回合计时区域
+	double round_time_sizex = PIECE_SIZE * 8 * 0.75 / 2;	//回合计时区大小
+	double round_time_sizey = PIECE_SIZE / 2;
+	double total_time_sizex = PIECE_SIZE * 10 * 0.75 / 2;	//总计时区大小
+	double total_time_sizey = PIECE_SIZE / 2;
+
+	int timer_black_x = BOARD_SIZE + FONT_POS * 2 + PIECE_SIZE + ELEMENT_GAP;	//加5略微靠右
 	int timer_black_y = PIECE_SIZE + FONT_POS + round_time_sizey;
 	int timer_white_x = BOARD_SIZE + INFO_SIZE - FONT_POS * 2 - PIECE_SIZE - round_time_sizex;
 	int timer_white_y = PIECE_SIZE + FONT_POS + round_time_sizey;
+	//总计时区域
+	int timer_black_total_x = timer_black_x;
+	int timer_black_total_y = timer_black_y + ELEMENT_GAP / 2 + PIECE_SIZE / 2;
+	int timer_white_total_x = timer_white_x;
+	int timer_white_total_y = timer_white_y + ELEMENT_GAP / 2 + PIECE_SIZE / 2;
+
+	//1.1计时区边框
+	double single_char = 0.35;
+	int black_piece_x = BOARD_SIZE + 2 * ELEMENT_GAP;	//黑棋X坐标
+	int black_piece_y = PIECE_SIZE + 2 * ELEMENT_GAP;	//黑棋Y坐标
+	int white_piece_x = BOARD_SIZE + INFO_SIZE - 2 * ELEMENT_GAP - PIECE_SIZE;	//白棋X坐标
+	int white_piece_y = PIECE_SIZE + 2 * ELEMENT_GAP;	//白棋y坐标
+	Put_Transparent_Image(black_piece_x, black_piece_y, &img_black_opp, &img_black);	//黑棋计时区
+	Put_Transparent_Image(white_piece_x, white_piece_y, &img_white_opp, &img_white);	//白棋计时区
 
 	//2、设置字体
 	setbkmode(TRANSPARENT);	//文本背景透明
@@ -443,24 +520,65 @@ void Turn_Draw_Timer(int player) {
 	settextcolor(timer_color);
 
 	//3.2、设定文字内容（使用宽字符，宽字符一般用于Unicode字符输出，格式更好）
-	wchar_t time_text[20];
+	wchar_t time_text_round[20];
 	if (turn_remain_time >= 0) {
-		wsprintf(time_text, _T("回合剩余：%02d秒"), turn_remain_time);	//wsprintf()的作用是将拼接字符串放入缓冲区
+		wsprintf(time_text_round, _T("回合剩余：%02d秒"), turn_remain_time);	//wsprintf()的作用是将拼接字符串放入缓冲区
 	}
 	else {
-		wsprintf(time_text, _T("超时"));
+		wsprintf(time_text_round, _T("超时"));
 	}
 
+	wchar_t black_time_total_text[20], white_time_total_text[20];
+	int black_min = time_total_black / 60;
+	int black_sec = time_total_black % 60;
+	int white_min = time_total_white / 60;
+	int white_sec = time_total_white % 60;
+
+	wsprintf(black_time_total_text, _T("总时间剩余：%02d:%02d"), black_min, black_sec);
+	wsprintf(white_time_total_text, _T("总时间剩余：%02d:%02d"), white_min, white_sec);
+
+	//计时区边框
+	setlinecolor(BLACK);
+	setlinestyle(PS_SOLID, 2);
+	int black_timearea_left = black_piece_x - ELEMENT_GAP;
+	int black_timearea_top = black_piece_y - ELEMENT_GAP;
+	int black_timearea_right = black_timearea_left + PIECE_SIZE + 10 * single_char * PIECE_SIZE + 2 * ELEMENT_GAP;
+	int black_timearea_bottom = black_timearea_top + PIECE_SIZE + 2 * ELEMENT_GAP;
+	roundrect(black_timearea_left, black_timearea_top, black_timearea_right, black_timearea_bottom, 15, 15);
+
+	int white_timearea_right = white_piece_x + PIECE_SIZE + ELEMENT_GAP;
+	int white_timearea_top = white_piece_y - ELEMENT_GAP;
+	int white_timearea_left = white_timearea_right - PIECE_SIZE - 10 * single_char * PIECE_SIZE - 2 * ELEMENT_GAP;
+	int white_timearea_bottom = white_timearea_top + PIECE_SIZE + 2 * ELEMENT_GAP;
+	roundrect(white_timearea_left, white_timearea_top, white_timearea_right, white_timearea_bottom, 15, 15);
+
+	//总剩余时间绘制
+	putimage(timer_black_total_x, timer_black_total_y, total_time_sizex, total_time_sizey, &img_info_background, total_time_sizex, total_time_sizey);
+	putimage(timer_white_total_x, timer_white_total_y, total_time_sizex, total_time_sizey, &img_info_background, total_time_sizex, total_time_sizey);
+
+	settextcolor(BLACK);
+	outtextxy(timer_black_total_x, timer_black_total_y, black_time_total_text);
+	outtextxy(timer_white_total_x, timer_white_total_y, white_time_total_text);
+
+	//回合剩余时间绘制
 	if (player == BLACK) {
+
+		setlinecolor(RED);
+		roundrect(black_timearea_left, black_timearea_top, black_timearea_right, black_timearea_bottom, 15, 15);
+
 		putimage(timer_black_x, timer_black_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空黑方回合计时区
-		outtextxy(timer_black_x, timer_black_y, time_text);	//绘制黑棋倒计时文字
+		outtextxy(timer_black_x, timer_black_y, time_text_round);	//绘制黑棋倒计时文字
 		settextcolor(BLACK);	//保证静止区域为黑色
 		putimage(timer_white_x, timer_white_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空白方回合计时区
 		outtextxy(timer_white_x, timer_white_y, _T("回合剩余：30秒"));	//绘制白棋倒计时文字
 	}
 	else if (player == WHITE) {
+
+		setlinecolor(RED);
+		roundrect(white_timearea_left, white_timearea_top, white_timearea_right, white_timearea_bottom, 15, 15);
+
 		putimage(timer_white_x, timer_white_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空白方回合计时区
-		outtextxy(timer_white_x, timer_white_y, time_text);	//绘制白棋倒计时文字
+		outtextxy(timer_white_x, timer_white_y, time_text_round);	//绘制白棋倒计时文字
 		settextcolor(BLACK);	//保证静止区域为黑色
 		putimage(timer_black_x, timer_black_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空黑方回合计时区
 		outtextxy(timer_black_x, timer_black_y, _T("回合剩余：30秒"));	//绘制黑棋倒计时文字
@@ -478,11 +596,11 @@ void Turn_Draw_Timer(int player) {
 			settextcolor(RED);
 			if (player == BLACK) {
 				putimage(timer_black_x, timer_black_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空黑方回合计时区
-				outtextxy(timer_black_x, timer_black_y, time_text);	//绘制黑棋倒计时文字
+				outtextxy(timer_black_x, timer_black_y, time_text_round);	//绘制黑棋倒计时文字
 			}
 			else if (player == WHITE) {
 				putimage(timer_white_x, timer_white_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空白方回合计时区
-				outtextxy(timer_white_x, timer_white_y, time_text);	//绘制白棋倒计时文字
+				outtextxy(timer_white_x, timer_white_y, time_text_round);	//绘制白棋倒计时文字
 			}
 		}
 	}
@@ -495,33 +613,77 @@ void Turn_Draw_Timer(int player) {
 
 void Draw_Gaming_Elements() {
 
-	//1、计时区元素
 	setorigin(0, 0);	//设置坐标原点
 
-	int black_piece_x = BOARD_SIZE + 2 * FONT_POS;	//黑棋X坐标
-	int black_piece_y = PIECE_SIZE + FONT_POS;	//黑棋Y坐标
-	int white_piece_x = BOARD_SIZE + INFO_SIZE - 2 * FONT_POS - PIECE_SIZE;	//白棋X坐标
-	int white_piece_y = PIECE_SIZE + FONT_POS;	//白棋y坐标
-	Put_Transparent_Image(black_piece_x, black_piece_y, &img_black_opp, &img_black);	//黑棋计时区
-	Put_Transparent_Image(white_piece_x, white_piece_y, &img_white_opp, &img_white);	//白棋计时区
+	//1、游戏功能区元素
+	solidcircle(button_restart_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);		//重启按钮
+	solidcircle(button_takeback_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);		//悔棋按钮
+	solidcircle(button_exit_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);			//退出按钮
+	solidcircle(button_setting_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);		//设置按钮
+	solidcircle(button_music_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);		//音乐按钮
 
-	//2、游戏功能区元素
+	//2、游戏联机区元素
+	//2.1设置字体
+	setbkmode(TRANSPARENT);	//文本背景透明
+	LOGFONT fontStyle;	//创建字体结构体
+	gettextstyle(&fontStyle);	//获取当前字体设置
+	fontStyle.lfQuality = ANTIALIASED_QUALITY;	//启用抗锯齿
+	fontStyle.lfWeight = FONT_WEIGHT;	//设置字体粗细
+	fontStyle.lfHeight = PIECE_SIZE / 2;	//设置字体高度
+	_tcscpy_s(fontStyle.lfFaceName, _T("微软雅黑"));
+	settextstyle(&fontStyle);	//应用新字体设置
 
-	//试验区
-	solidcircle(button_restart_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);
-	solidcircle(button_takeback_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);
-	solidcircle(button_exit_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);
-	solidcircle(button_setting_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);
-	solidcircle(button_music_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);
+	//2.2游戏模式显示
+	double single_char = 0.35;
+	double game_mode_textx = BOARD_SIZE + ELEMENT_GAP;
+	double network_mode_textx = BOARD_SIZE + INFO_SIZE - 2 * ELEMENT_GAP - 8 * single_char * PIECE_SIZE;
+	double game_mode_texty = PIECE_SIZE + 2 * ELEMENT_GAP + PIECE_SIZE + 3 * ELEMENT_GAP;
+	double network_mode_texty = game_mode_texty;
+	settextcolor(BLACK);
+	outtextxy(game_mode_textx, game_mode_texty, _T("当前模式："));
+	settextcolor(BLUE);
+	if (game_mode == NETWORK_MODE_LOCAL) {
+		outtextxy(game_mode_textx + 5 * single_char * PIECE_SIZE, game_mode_texty, _T("本地模式"));
+	}
+	else if (game_mode == NETWORK_MODE_SERVER || game_mode == NETWORK_MODE_CLIENT) {
+		outtextxy(game_mode_textx + 5 * single_char * PIECE_SIZE, game_mode_texty, _T("联网模式"));
+	}
+	else if (game_mode == NETWORK_MODE_AI) {
+		outtextxy(game_mode_textx + 5 * single_char * PIECE_SIZE, game_mode_texty, _T("人机模式"));
+	}
 
-	//3、游戏联机区元素
+	//2.3连接状态显示
+	settextcolor(BLACK);
+	outtextxy(network_mode_textx, network_mode_texty, _T("连接状态："));
+	if (isConnected) {
+		settextcolor(GREEN);
+		outtextxy(network_mode_textx + 5 * single_char * PIECE_SIZE, network_mode_texty, _T("已连接"));
+	}
+	else {
+		settextcolor(RED);
+		outtextxy(network_mode_textx + 5 * single_char * PIECE_SIZE, network_mode_texty, _T("未连接"));
+	}
 
-	//4、游戏卡牌区元素
+	//3、游戏卡牌区元素
+	setlinecolor(BLACK);
+	setlinestyle(PS_SOLID, 2);
+	double card_board_left = BOARD_SIZE + ELEMENT_GAP;
+	double card_board_top = game_mode_texty + single_char * PIECE_SIZE + 2 * ELEMENT_GAP;
+	double card_board_right = BOARD_SIZE + INFO_SIZE - ELEMENT_GAP;
+	double card_board_bottom = card_board_top + INFO_SIZE - 8 * ELEMENT_GAP;
+	roundrect(card_board_left, card_board_top, card_board_right, card_board_bottom, 15, 15);
+
+	//4、游戏聊天区元素
+	double chat_board_left = card_board_left;
+	double chat_board_top = card_board_bottom + ELEMENT_GAP;
+	double chat_board_right = card_board_right;
+	double chat_board_bottom = chat_board_top + 2 * ELEMENT_GAP;
+	roundrect(chat_board_left, chat_board_top, chat_board_right, chat_board_bottom, 10, 10);
 
 	setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y);	//恢复坐标原点
 }
 
-int Judge_Win(int Board[LINE_NUM][LINE_NUM], int x, int y, int player) {
+int Judge_Win_Chess(int Board[LINE_NUM][LINE_NUM], int x, int y, int player) {
 
 	//1、字体结构调整
 	setbkmode(TRANSPARENT);	//文本背景透明
@@ -580,6 +742,46 @@ int Judge_Win(int Board[LINE_NUM][LINE_NUM], int x, int y, int player) {
 				setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y);	//恢复坐标中心
 				return WHITE;
 			}
+		}
+	}
+
+	setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y);	//恢复坐标中心
+	return EMPTY;
+}
+
+int Judge_Win_Timer(int player) {
+
+	//字体结构调整
+	setbkmode(TRANSPARENT);	//文本背景透明
+	settextcolor(BLACK);	//文字颜色黑色
+	LOGFONT fontStyle;	//创建字体结构体
+	gettextstyle(&fontStyle);	//获取当前字体设置
+	fontStyle.lfQuality = ANTIALIASED_QUALITY;	//启用抗锯齿
+	fontStyle.lfWeight = FONT_WEIGHT;	//设置字体粗细
+	fontStyle.lfHeight = PIECE_SIZE;	//设置字体高度
+	_tcscpy_s(fontStyle.lfFaceName, _T("微软雅黑"));
+
+	settextstyle(&fontStyle);	//应用新字体设置
+
+	setorigin(0, 0);	//重设坐标原点
+
+	if (!player_time_running) {
+
+		putimage(BOARD_SIZE + INFO_SIZE / 2 - 1.5 * PIECE_SIZE, FONT_POS, PIECE_SIZE * 4 * 0.75, PIECE_SIZE, &img_info_background, INFO_SIZE / 2 - 1.5 * PIECE_SIZE, FONT_POS);	//清理上次的文字（字体高宽比约0.75）
+
+		if (player == BLACK && time_total_black <= 0) {
+			printf_s("白方胜利");
+			outtextxy(BOARD_SIZE + INFO_SIZE / 2 - 1.5 * PIECE_SIZE, FONT_POS, _T("白方胜利"));
+			FlushBatchDraw();	//刷新显示
+			setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y);	//恢复坐标中心
+			return WHITE;
+		}
+		else if (player == WHITE && time_total_white <= 0) {
+			printf_s("黑方胜利");
+			outtextxy(BOARD_SIZE + INFO_SIZE / 2 - 1.5 * PIECE_SIZE, FONT_POS, _T("黑方胜利"));
+			FlushBatchDraw();	//刷新显示
+			setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y); //恢复坐标中心
+			return BLACK;
 		}
 	}
 
@@ -736,7 +938,7 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player) {
 					Put_Transparent_Image(centerX, centerY, &img_black_opp, &img_black);	//绘制黑棋
 					Board[msg.x][msg.y] = BLACK;
 
-					if (Judge_Win(Board, msg.x, msg.y, player) == BLACK) {
+					if (Judge_Win_Chess(Board, msg.x, msg.y, player) == BLACK) {
 						choice = _getch();	//判断输赢
 					}
 					player = WHITE;	//棋方转换
@@ -745,7 +947,7 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player) {
 					Put_Transparent_Image(centerX, centerY, &img_white_opp, &img_white);
 					Board[msg.x][msg.y] = WHITE;
 
-					if (Judge_Win(Board, msg.x, msg.y, player) == WHITE) {
+					if (Judge_Win_Chess(Board, msg.x, msg.y, player) == WHITE) {
 						choice = _getch();	//判断输赢
 					}
 					player = BLACK;	//棋方转换
@@ -786,7 +988,6 @@ int main() {
 	printf_s("        欢迎游玩Gobang-Rogue！       \n");
 	printf_s("=====================================\n");
 	printf_s("请选择游玩模式：1、本地 2、创建服务器 3、连接服务器：");
-	int game_mode;
 	if (scanf_s("%d", &game_mode) != 1) {
 		printf("输入错误\n");
 		return -1;
@@ -864,15 +1065,16 @@ int main() {
 	game_remain_time = time(NULL);	//初始化总游戏时间开始
 	Turn_Timer_Start();	//初始化计时器
 
+	Draw_Gaming_Elements();	//绘制游戏界面元素
+
 	//=====================/二、游戏主循环阶段/=====================
 
 	while (true) {
 
 		//1、更新计时器和游戏状态
-		Turn_Timer_Update();	//计算剩余时间
+		Turn_Timer_Update(player);	//计算剩余时间
 		Turn_Draw_Timer(player);	//绘制倒计时
 
-		Draw_Gaming_Elements();	//绘制游戏界面元素
 		Player_Point(BLACK + WHITE - player);	//显示玩家指向
 		FlushBatchDraw();	//刷新显示
 
@@ -888,7 +1090,7 @@ int main() {
 			//3.1、计算鼠标坐标与棋盘坐标对应关系
 			getmessage(&msg, EX_MOUSE);
 
-			Game_Music_Control(msg);	//音乐素材导入
+			Game_Music_Control(msg);	//音乐控制模块
 
 			int boardX = (msg.x - BOARD_MARGIN_REAL + PIECE_SIZE / 2) / PIECE_SIZE;	//计算二维数组棋盘对应位置
 			int boardY = (msg.y - BOARD_MARGIN_REAL + PIECE_SIZE / 2) / PIECE_SIZE;	//添加20用于四舍五入提高用户体验
@@ -941,7 +1143,7 @@ int main() {
 						isMyturn = false;		//发送完信息后，我端不下棋
 					}
 
-					if (Judge_Win(board, boardX, boardY, player) == BLACK) {
+					if (Judge_Win_Chess(board, boardX, boardY, player) == BLACK) {
 						choice = _getch();	//判断输赢
 					}
 					player = WHITE;	//棋方转换
@@ -972,7 +1174,7 @@ int main() {
 						isMyturn = false;		//发送完信息后，我端不下棋
 					}
 
-					if (Judge_Win(board, boardX, boardY, player) == WHITE) {
+					if (Judge_Win_Chess(board, boardX, boardY, player) == WHITE) {
 						choice = _getch();	//判断输赢
 					}
 					player = BLACK;	//棋方转换
@@ -984,14 +1186,19 @@ int main() {
 			}
 
 			//3.4、立即更新计时器
-			Turn_Timer_Update();	//计算剩余时间
+			Turn_Timer_Update(player);	//计算剩余时间
 			Turn_Draw_Timer(player);	//绘制倒计时
 			FlushBatchDraw();	//刷新显示
 
 		}
 
-		//4、倒计时结束强制换边
-		if (!game_time_running) {
+		//4、有玩家总时间耗尽游戏结束
+		int total_timer_result = Judge_Win_Timer(player);
+		if (total_timer_result != EMPTY) {
+			choice = _getch();	//判断输赢
+		}
+		//5、倒计时结束强制换边
+		else if (!game_time_running) {
 			player = BLACK + WHITE - player;	//强制换边
 			if (NetworkMode != NETWORK_MODE_LOCAL && isMyturn == true) {
 				isMyturn = false;
