@@ -58,7 +58,7 @@ This game is written in C++. The core gameplay is a Gobang game that contains Ro
 
 	添加AI模式，进行人机对弈。
 
-	添加多人对战模式：客户端-服务器架构、匹配系统、文本聊天功能。
+	添加多人对战模式：客户端-服务器架构、匹配系统、文本聊天功能。 ————多人对战基础功能于2026年2月10日完成
 
 	Roguelike元素添加。
 
