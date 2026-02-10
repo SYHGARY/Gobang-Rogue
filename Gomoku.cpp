@@ -389,12 +389,17 @@ void Turn_Timer_Start() {
 
 	//2、清理上次计时区域
 	setorigin(0, 0);	//设置坐标原点
-	int round_time_sizex = PIECE_SIZE * 8 * 0.75 / 2;	//回合计时区大小
-	int round_time_sizey = PIECE_SIZE / 2;
-	int timer_black_x = BOARD_SIZE + FONT_POS * 2 + PIECE_SIZE + 5;	//加5略微靠右
-	int timer_black_y = PIECE_SIZE + FONT_POS + round_time_sizey;
-	int timer_white_x = BOARD_SIZE + INFO_SIZE - FONT_POS * 2 - PIECE_SIZE - round_time_sizex;
-	int timer_white_y = PIECE_SIZE + FONT_POS + round_time_sizey;
+	double single_char = 0.35;
+	double round_time_sizex = PIECE_SIZE * 8 * 0.75 / 2;	//回合计时区大小
+	double round_time_sizey = PIECE_SIZE / 2;
+
+	double black_piece_x = BOARD_SIZE + 2 * ELEMENT_GAP;	//黑棋X坐标
+	double white_piece_x = BOARD_SIZE + INFO_SIZE - 2 * ELEMENT_GAP - PIECE_SIZE;	//白棋X坐标
+
+	double timer_black_x = black_piece_x + PIECE_SIZE + ELEMENT_GAP / 2;
+	double timer_black_y = PIECE_SIZE + FONT_POS + round_time_sizey - ELEMENT_GAP / 2;
+	double timer_white_x = white_piece_x - 9.5 * single_char * PIECE_SIZE - ELEMENT_GAP / 2;
+	double timer_white_y = PIECE_SIZE + FONT_POS + round_time_sizey - ELEMENT_GAP / 2;
 
 	//3、设置字体
 	setbkmode(TRANSPARENT);	//文本背景透明
@@ -467,32 +472,34 @@ void Turn_Timer_Update(int player) {
 
 void Turn_Draw_Timer(int player) {
 
-	//1、清理上次计时区域
+	//1、设定各元素范围
 	setorigin(0, 0);	//设置坐标原点
-	//回合计时区域
+	//1.1计时区范围
 	double round_time_sizex = PIECE_SIZE * 8 * 0.75 / 2;	//回合计时区大小
 	double round_time_sizey = PIECE_SIZE / 2;
-	double total_time_sizex = PIECE_SIZE * 10 * 0.75 / 2;	//总计时区大小
+	double total_time_sizex = PIECE_SIZE * 9 * 0.75 / 2;	//总计时区大小
 	double total_time_sizey = PIECE_SIZE / 2;
 
-	int timer_black_x = BOARD_SIZE + FONT_POS * 2 + PIECE_SIZE + ELEMENT_GAP;	//加5略微靠右
-	int timer_black_y = PIECE_SIZE + FONT_POS + round_time_sizey;
-	int timer_white_x = BOARD_SIZE + INFO_SIZE - FONT_POS * 2 - PIECE_SIZE - round_time_sizex;
-	int timer_white_y = PIECE_SIZE + FONT_POS + round_time_sizey;
-	//总计时区域
-	int timer_black_total_x = timer_black_x;
-	int timer_black_total_y = timer_black_y + ELEMENT_GAP / 2 + PIECE_SIZE / 2;
-	int timer_white_total_x = timer_white_x;
-	int timer_white_total_y = timer_white_y + ELEMENT_GAP / 2 + PIECE_SIZE / 2;
-
-	//1.1计时区边框
+	//1.2计时区棋子元素
 	double single_char = 0.35;
-	int black_piece_x = BOARD_SIZE + 2 * ELEMENT_GAP;	//黑棋X坐标
-	int black_piece_y = PIECE_SIZE + 2 * ELEMENT_GAP;	//黑棋Y坐标
-	int white_piece_x = BOARD_SIZE + INFO_SIZE - 2 * ELEMENT_GAP - PIECE_SIZE;	//白棋X坐标
-	int white_piece_y = PIECE_SIZE + 2 * ELEMENT_GAP;	//白棋y坐标
+	double black_piece_x = BOARD_SIZE + 2 * ELEMENT_GAP;	//黑棋X坐标
+	double black_piece_y = PIECE_SIZE + 2 * ELEMENT_GAP;	//黑棋Y坐标
+	double white_piece_x = BOARD_SIZE + INFO_SIZE - 2 * ELEMENT_GAP - PIECE_SIZE;	//白棋X坐标
+	double white_piece_y = PIECE_SIZE + 2 * ELEMENT_GAP;	//白棋y坐标
 	Put_Transparent_Image(black_piece_x, black_piece_y, &img_black_opp, &img_black);	//黑棋计时区
 	Put_Transparent_Image(white_piece_x, white_piece_y, &img_white_opp, &img_white);	//白棋计时区
+
+	//1.3文字坐标
+	//回合计时区域
+	double timer_black_x = black_piece_x + PIECE_SIZE + ELEMENT_GAP / 2;
+	double timer_black_y = PIECE_SIZE + FONT_POS + round_time_sizey - ELEMENT_GAP / 2;
+	double timer_white_x = white_piece_x - 9.5 * single_char * PIECE_SIZE - ELEMENT_GAP / 2;
+	double timer_white_y = PIECE_SIZE + FONT_POS + round_time_sizey - ELEMENT_GAP / 2;
+	//总计时区域
+	double timer_black_total_x = timer_black_x;
+	double timer_black_total_y = timer_black_y + ELEMENT_GAP / 2 + PIECE_SIZE / 2;
+	double timer_white_total_x = timer_white_x;
+	double timer_white_total_y = timer_white_y + ELEMENT_GAP / 2 + PIECE_SIZE / 2;
 
 	//2、设置字体
 	setbkmode(TRANSPARENT);	//文本背景透明
@@ -616,11 +623,21 @@ void Draw_Gaming_Elements() {
 	setorigin(0, 0);	//设置坐标原点
 
 	//1、游戏功能区元素
-	solidcircle(button_restart_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);		//重启按钮
-	solidcircle(button_takeback_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);		//悔棋按钮
-	solidcircle(button_exit_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);			//退出按钮
-	solidcircle(button_setting_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);		//设置按钮
-	solidcircle(button_music_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE, BUTTON_SIZE / 2);		//音乐按钮
+	int button_all_y = BOARD_SIZE - BUTTON_POS - BUTTON_SIZE;
+	solidcircle(button_restart_x, button_all_y, BUTTON_SIZE / 2);		//重启按钮
+	outtextxy(button_restart_x, button_all_y, _T("重"));
+
+	solidcircle(button_takeback_x, button_all_y, BUTTON_SIZE / 2);		//悔棋按钮
+	outtextxy(button_takeback_x, button_all_y, _T("悔"));
+
+	solidcircle(button_exit_x, button_all_y, BUTTON_SIZE / 2);			//退出按钮
+	outtextxy(button_exit_x, button_all_y, _T("退"));
+
+	solidcircle(button_setting_x, button_all_y, BUTTON_SIZE / 2);		//设置按钮
+	outtextxy(button_setting_x, button_all_y, _T("设"));
+
+	solidcircle(button_music_x, button_all_y, BUTTON_SIZE / 2);		//音乐按钮
+	outtextxy(button_music_x, button_all_y, _T("音"));
 
 	//2、游戏联机区元素
 	//2.1设置字体
