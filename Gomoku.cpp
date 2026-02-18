@@ -1,10 +1,10 @@
 //=====================/头文件/=====================
 
 //预处理定义
-#define _CRT_SECURE_NO_WARNINGS		//禁用CRT安全警告
+#define _CRT_SECURE_NO_WARNINGS				//禁用CRT安全警告
 #define _WINSOCK_DEPRECATED_NO_WARNINGS		//禁用Winsock弃用警告
 #define WIN32_LEAN_AND_MEAN
-#define NOMINMAX	//避免min/max宏冲突
+#define NOMINMAX							//避免min/max宏冲突
 
 //Windows API
 #include <winsock2.h>	//Winsock2 API
@@ -34,56 +34,68 @@
 //=====================/常量设定/=====================
 
 //棋盘绘制位置常量
-#define LINE_NUM 15	//线条数
-#define BOARD_SIZE 650	//棋盘大小
-#define BOARD_MARGIN 280	//棋盘横线边缘
-#define BOARD_MARGIN_REAL 45	//棋盘横线边缘真实距离  
-#define OFFSET (BOARD_SIZE+PIECE_SIZE)/2	//鼠标坐标与绘图坐标偏移量
-#define DOT_POS 160	//星位点位置
-#define DOT_RADIUS 5	//星位点半径
-#define BOARD_ORIGIN_X 325	//初始X坐标
-#define BOARD_ORIGIN_Y 325	//初始Y坐标
-#define PIECE_SIZE 40	//棋子大小 / 格子大小
-#define FONT_POS 2.5 //字体位置
+#define LINE_NUM 15					//线条数
+#define BOARD_SIZE 650				//棋盘大小
+#define BOARD_MARGIN 280			//棋盘横线边缘
+#define BOARD_MARGIN_REAL 45		//棋盘横线边缘真实距离  
+#define OFFSET 345					//鼠标坐标与绘图坐标偏移量
+#define DOT_POS 160					//星位点位置
+#define DOT_RADIUS 5				//星位点半径
+#define BOARD_ORIGIN_X 325			//初始X坐标
+#define BOARD_ORIGIN_Y 325			//初始Y坐标
+#define PIECE_SIZE 40				//棋子大小 / 格子大小
 
 //信息区绘制位置常量
-#define INFO_SIZE 450	//信息区大小
+#define INFO_SIZE 450				//信息区大小
+#define BUTTON_SIZE 45				//按钮大小
+#define BUTTON_GAP	10				//按钮间隔
+#define BUTTON_POS 2.5				//按钮高度位置
+#define ELEMENT_GAP 10				//元素间隔
+
+//字体常量
+#define FONT_WEIGHT 700				//字体粗细
+#define FONT_POS 2.5				//字体位置
+#define FONT_NUM 100				//字体数量
 
 //棋盘状态常量
-#define EMPTY 0	//无棋子
-#define BLACK 1	//黑棋
-#define WHITE 2	//白棋
-#define START 1
-#define END 0
+#define EMPTY 0						//无棋子
+#define BLACK 1						//黑棋
+#define WHITE 2						//白棋
 
-//美工常量
-#define FONT_WEIGHT 700	//字体粗细
-#define BUTTON_SIZE 45	//按钮大小
-#define BUTTON_GAP	10	//按钮间隔
-#define BUTTON_POS 2.5	//按钮高度位置
-#define ELEMENT_GAP 10	//元素间隔
-
-//时间常量
-#define TIME_LIMIT_TOTAL 600 //总时长限制10分钟
-#define TIME_LIMIT 30 //单步限制30秒
-#define TIME_WARN 10 //剩余10秒警告
-#define FLASH_CYCLE 500	//闪烁周期为500个循环一闪
+//时间计时常量
+#define TIME_LIMIT_TOTAL 600		//总时长限制10分钟
+#define TIME_LIMIT 30				//单步限制30秒
+#define TIME_WARN 10				//剩余10秒警告
+#define FLASH_CYCLE 500				//闪烁周期为500个循环一闪
 
 //网络模式常量（后续使用图形化界面替代）
-#define PORT 8888				//默认网络端口
-#define NETWORK_MODE_LOCAL	1	//本地对战
-#define NETWORK_MODE_SERVER	2	//网络对战（服务端）
-#define NETWORK_MODE_CLIENT	3	//网络对战（客户端）
-#define NETWORK_MODE_AI	4		//人机对战
+#define PORT 8888					//默认网络端口
+#define NETWORK_MODE_LOCAL	1		//本地对战
+#define NETWORK_MODE_SERVER	2		//网络对战（服务端）
+#define NETWORK_MODE_CLIENT	3		//网络对战（客户端）
+#define NETWORK_MODE_AI	4			//人机对战
 
 //网络状态常量
-#define MSG_MOVE 0	//落子信息
-#define MSG_QUIT 1	//退出信息
-#define MSG_CHAT 2	//聊天信息
+#define MSG_MOVE 0					//落子信息
+#define MSG_QUIT 1					//退出信息
+#define MSG_CHAT 2					//聊天信息
+
+//=====================/枚举量设定/=====================
+
+//状态机设定
+enum GameState {
+	MENU,
+	INSTRUCTION,
+	MULTIPLAYER_SERVER,
+	MULTIPLAYER_CLIENT,
+	PLAYING,
+	SETTING,
+	EXIT
+};
 
 //=====================/结构体设定/=====================
 
-//网络数据包
+//网络数据包内容
 struct NetworkMessage {
 	int msgtype;	//消息类型
 	int x, y;		//棋盘坐标
@@ -94,34 +106,50 @@ struct NetworkMessage {
 //=====================/公共变量设定/=====================
 
 //初始设定公共变量
-int highlightX = -1, highlightY = -1;	//记录高光坐标
+int highlightX = -1, highlightY = -1;			//记录高光坐标
 
 //时间公共变量
-time_t game_start_time;	//游戏开始时间
-time_t turn_start_time;	//回合开始时间
-static int turn_passed_last = 0;	//记录已经扣除的时间
-int time_total_black = TIME_LIMIT_TOTAL;	//黑方总剩余时间
-int time_total_white = TIME_LIMIT_TOTAL;	//白方总剩余时间
-int game_remain_time;	//游戏剩余时间
-int turn_remain_time;	//回合剩余时间
-bool game_time_running;	//计时器是否运行
-bool player_time_running = true;	//是否有玩家总时间耗尽
+time_t game_start_time;							//游戏开始时间
+time_t turn_start_time;							//回合开始时间
+static int turn_passed_last = 0;				//记录已经扣除的时间
+int time_total_black = TIME_LIMIT_TOTAL;		//黑方总剩余时间
+int time_total_white = TIME_LIMIT_TOTAL;		//白方总剩余时间
+int game_remain_time;							//游戏剩余时间
+int turn_remain_time;							//回合剩余时间
+bool game_time_running;							//计时器是否运行
+bool player_time_running = true;				//是否有玩家总时间耗尽
 
 //图片公共变量
 IMAGE img_start_background, img_game_background, img_info_background;	//背景图片
-IMAGE img_white, img_white_opp, img_black, img_black_opp;	//棋子图片
+IMAGE img_white, img_white_opp, img_black, img_black_opp;				//棋子图片
 
 //游戏坐标公共变量
-int button_restart_x = BOARD_SIZE + BUTTON_GAP + BUTTON_SIZE / 2;	//重新开始按钮X坐标 -> 第一个按钮
-int button_takeback_x = BOARD_SIZE + BUTTON_GAP + BUTTON_SIZE + BUTTON_GAP + BUTTON_SIZE / 2;	//悔棋按钮X坐标 -> 第二个按钮
-int button_exit_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//退出按钮X坐标	-> 第五个按钮
-int button_setting_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//设置按钮X坐标 -> 第四个按钮
+
+//字体公共变量
+wchar_t inputStr[FONT_NUM] = L"";	//需要输入的初始字符
+
+//主界面按钮
+int button_singleplayer_x;
+int button_multiplayer_x;
+int button_mainsetting_x;
+int button_mainexit_x;
+
+//多人界面按钮
+int button_createserver;
+int button_joinserver;
+
+
+//游戏界面按钮
+int button_restart_x = BOARD_SIZE + BUTTON_GAP + BUTTON_SIZE / 2;																	//重新开始按钮X坐标 -> 第一个按钮
+int button_takeback_x = BOARD_SIZE + BUTTON_GAP + BUTTON_SIZE + BUTTON_GAP + BUTTON_SIZE / 2;										//悔棋按钮X坐标 -> 第二个按钮
+int button_exit_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;															//退出按钮X坐标	-> 第五个按钮
+int button_setting_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;							//设置按钮X坐标 -> 第四个按钮
 int button_music_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//音乐按钮X坐标 -> 第三个按钮
 
 //游戏功能相关公共变量
-int game_mode;	//游戏模式
-int music_flag = 1;	//音乐是否开启标识
-char choice;	//用于让界面暂停
+int game_mode;				//游戏模式
+int music_flag = 1;			//音乐是否开启标识
+char choice;				//用于让界面暂停
 
 //网络相关公共变量
 SOCKET ServerSocket = INVALID_SOCKET;
@@ -135,38 +163,43 @@ bool isMyturn = true;					//防止玩家在对手回合下棋
 //=====================/总体功能函数声明/=====================
 
 //1、基础功能函数声明
-void Texture_Load();	//素材导入函数
-void Game_Music_Control();	//游戏音乐控制函数
+void Texture_Load();															//素材导入函数
+void Game_Music_Control(ExMessage msg);											//游戏音乐控制函数
+bool Switch_To_Setting(ExMessage msg);											//跳转到设置页面
+bool Switch_To_Menu(ExMessage msg);												//跳转到主页面
 void Put_Transparent_Image(int x, int y, const IMAGE* mask, const IMAGE* img);	//透明图片载入函数
-bool Is_InCirecle(int px, int py, int cx, int cy, int radius);	//是否在圆内判断函数
+bool Is_InCirecle(int px, int py, int cx, int cy, int radius);					//是否在圆内判断函数
+void Input_Box();
 
-//2、游戏界面与功能函数声明
+//2、主界面与功能函数
+
+
+//3、游戏界面与功能函数声明
 void Draw_Board();	//五子棋盘绘制函数
 void Draw_Info();	//信息区域绘制函数
 
 void Draw_Highlight(int x, int y, int Board[LINE_NUM][LINE_NUM]);	//绘制高光函数
-void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]);	//清理高光函数（局部重绘提高效率）
-void Player_Point(int player);	//玩家指向函数
+void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]);				//清理高光函数（局部重绘提高效率）
+void Player_Point(int player);										//玩家指向函数
 
-void Turn_Timer_Start();	//回合计时初始化函数
-void Turn_Timer_Update(int player);	//回合剩余时间计算函数
-void Turn_Draw_Timer(int player);	//绘制倒计时函数
+void Turn_Timer_Start();											//回合计时初始化函数
+void Turn_Timer_Update(int player);									//回合剩余时间计算函数
+void Turn_Draw_Timer(int player);									//绘制倒计时函数
 
-void Draw_Gaming_Elements();	//绘制棋盘其他元素
 int Judge_Win_Chess(int Board[LINE_NUM][LINE_NUM], int x, int y, int player);	//判断游戏结束函数（这里的X，Y代表的是现在下的棋的位置，因为其实只有现在下的棋改变了棋盘的状态，提高搜索效率）
-int Judge_Win_Timer(int player);	//时间判断游戏结束函数
+int Judge_Win_Timer(int player);												//时间判断游戏结束函数
 
-//3、游戏玩法函数声明
+//4、游戏玩法函数声明
 void Take_Back_Move();
 
-//4、网络功能函数声明
-bool Init_Winsock();				//初始化Winsock
-bool Create_Server();			//创建服务器（服务端）
-bool Connect_Server(const char* ip);			//连接服务器（客户端）
-bool Accept_Connection();		//同意连接（服务端）
-bool Send_Network_Message();		//传输数据（客户端）
-bool Receive_Network_Message();	//接收数据（服务端）
-void Network_Mode_Event();		//网络模式对战处理
+//5、网络功能函数声明
+bool Init_Winsock();														//初始化Winsock
+bool Create_Server();														//创建服务器（服务端）
+bool Connect_Server(const char* ip);										//连接服务器（客户端）
+bool Accept_Connection();													//同意连接（服务端）
+bool Send_Network_Message(SOCKET socket, const NetworkMessage& msg);		//传输数据（客户端）
+bool Receive_Network_Message(SOCKET socket, NetworkMessage& msg);			//接收数据（服务端）
+void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player);		//网络模式对战处理
 
 //=====================/函数具体内容/=====================
 
@@ -185,11 +218,11 @@ void Texture_Load() {
 
 void Game_Music_Control(ExMessage msg) {
 
-	if (Is_InCirecle(msg.x, msg.y, button_music_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE/2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN) {
+	if (Is_InCirecle(msg.x, msg.y, button_music_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE / 2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN) {
 
 		if (music_flag == 0) {
 			mciSendString(_T("close GameBGM"), NULL, 0, NULL);	//检测防止音乐重复打开
-			mciSendString(_T("open ./素材/music1.mp3 alias GameBGM"), NULL, 0, NULL); 
+			mciSendString(_T("open ./素材/music1.mp3 alias GameBGM"), NULL, 0, NULL);
 			mciSendString(_T("play GameBGM repeat"), NULL, 0, NULL);	//重复播放音乐
 			music_flag = 1;
 			printf_s("开启音乐\n");
@@ -202,6 +235,29 @@ void Game_Music_Control(ExMessage msg) {
 	}
 }
 
+bool Switch_To_Setting(ExMessage msg) {
+
+	if (Is_InCirecle(msg.x, msg.y, button_setting_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE / 2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN) {
+		printf("跳转到设置面\n");
+		return true;	//点击了设置按钮
+	}
+	else {
+		return false;
+	}
+
+}
+
+bool Switch_To_Menu(ExMessage msg) {
+
+	if (Is_InCirecle(msg.x, msg.y, button_exit_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE / 2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN) {
+		printf("跳转到主页面\n");
+		return true;	//点击了退出按钮
+	}
+	else {
+		return false;
+	}
+}
+
 void Put_Transparent_Image(int x, int y, const IMAGE* mask, const IMAGE* img) {
 
 	putimage(x, y, mask, SRCAND);	//掩码图，黑色部分代表透明区域
@@ -211,7 +267,7 @@ void Put_Transparent_Image(int x, int y, const IMAGE* mask, const IMAGE* img) {
 bool Is_InCirecle(int px, int py, int cx, int cy, int radius) {
 
 	//1、计算坐标距离
-	int dx, dy;	
+	int dx, dy;
 	dx = px - cx;	//X轴距离
 	dy = py - cy;	//Y轴距离
 
@@ -224,7 +280,62 @@ bool Is_InCirecle(int px, int py, int cx, int cy, int radius) {
 	}
 }
 
-//2、游戏界面与功能函数
+void Input_Box() {
+
+	int index = 0;
+	int inputBoxLeft, inputBoxTop, inputBoxRight, inputBoxBottom;
+
+	settextcolor(BLACK);
+	settextstyle(20, 0, _T("微软雅黑"));
+
+	while (true) {
+		
+		if (_kbhit()) {														//检测是否有输入
+
+			wchar_t ch = _getwch();											//输入宽字符
+			if (ch == _T('\r')) {											//检测到换行符结束输入
+				break;
+			}
+			else if (ch == _T('\b') && index > 0) {							//检测到退格符删除字符
+				inputStr[--index] = _T('\0');
+			}
+			else if (index < FONT_NUM - 1 && ch >= 32 && ch <= 126) {		//打印可打印字符
+				inputStr[index++] = ch;
+				inputStr[index] = _T('\0');
+			}
+		}
+
+		cleardevice();														//删除前一帧
+		//rectangle();
+
+		//int textY = inputBoxTop + (inputBoxTop - inputBoxBottom - textheight(_T("A"))) / 2;
+		//outtextxy(inputBoxLeft + ELEMENT_GAP / 2, textY, inputStr);
+
+		FlushBatchDraw();	//刷新显示
+		Sleep(10);
+	}
+
+}
+
+//2、主界面与功能函数
+void Draw_Main() {
+
+	setbkcolor(WHITE);				//绘制背景
+
+	int headline_x, headline_y;
+	int button_singleplayer_y;
+	int button_multiplayer_y;
+	int button_mainsetting_y;
+	int button_mainexit_y;
+
+	//putimage();
+
+	//roundrect();	//本地模式
+	//roundrect();	//多人模式
+	
+}
+
+//3、游戏界面与功能函数
 void Draw_Board() {
 
 	//1、放置木质背景
@@ -233,6 +344,7 @@ void Draw_Board() {
 
 	//2、绘制网格
 	setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y);
+	setlinestyle(PS_SOLID, 1);
 	setlinecolor(BLACK);
 	setfillcolor(BLACK);
 
@@ -252,13 +364,90 @@ void Draw_Board() {
 
 void Draw_Info() {
 
-	//1、防止信息背景
-	setorigin(0, 0);	//设置初始点
-	putimage(BOARD_SIZE, 0, &img_info_background);	//放置信息背景
+	//1、放置信息背景
+	setorigin(0, 0);													//设置初始点
+	putimage(BOARD_SIZE, 0, &img_info_background);						//放置信息背景
+
+	setbkmode(TRANSPARENT);												//文本背景透明
+	LOGFONT fontStyle;													//创建字体结构体
+	gettextstyle(&fontStyle);											//获取当前字体设置
+	fontStyle.lfQuality = ANTIALIASED_QUALITY;							//启用抗锯齿
+	fontStyle.lfWeight = FONT_WEIGHT;									//设置字体粗细
+	fontStyle.lfHeight = PIECE_SIZE / 2;								//设置字体高度
+	_tcscpy_s(fontStyle.lfFaceName, _T("微软雅黑"));
+	settextstyle(&fontStyle);											//应用新字体设置
+
+	//2、游戏功能区元素
+	int button_all_y = BOARD_SIZE - BUTTON_POS - BUTTON_SIZE;
+	solidcircle(button_restart_x, button_all_y, BUTTON_SIZE / 2);		//重启按钮
+	outtextxy(button_restart_x, button_all_y, _T("重"));
+
+	solidcircle(button_takeback_x, button_all_y, BUTTON_SIZE / 2);		//悔棋按钮
+	outtextxy(button_takeback_x, button_all_y, _T("悔"));
+
+	solidcircle(button_exit_x, button_all_y, BUTTON_SIZE / 2);			//退出按钮
+	outtextxy(button_exit_x, button_all_y, _T("退"));
+
+	solidcircle(button_setting_x, button_all_y, BUTTON_SIZE / 2);		//设置按钮
+	outtextxy(button_setting_x, button_all_y, _T("设"));
+
+	solidcircle(button_music_x, button_all_y, BUTTON_SIZE / 2);			//音乐按钮
+	outtextxy(button_music_x, button_all_y, _T("音"));
+
+	//3、游戏联机区元素
+
+	//3.2游戏模式显示
+	double single_char = 0.35;
+	double game_mode_textx = BOARD_SIZE + ELEMENT_GAP;
+	double network_mode_textx = BOARD_SIZE + INFO_SIZE - 2 * ELEMENT_GAP - 8 * single_char * PIECE_SIZE;
+	double game_mode_texty = PIECE_SIZE + 2 * ELEMENT_GAP + PIECE_SIZE + 3 * ELEMENT_GAP;
+	double network_mode_texty = game_mode_texty;
+	settextcolor(BLACK);
+	outtextxy(game_mode_textx, game_mode_texty, _T("当前模式："));
+	settextcolor(BLUE);
+	if (game_mode == NETWORK_MODE_LOCAL) {
+		outtextxy(game_mode_textx + 5 * single_char * PIECE_SIZE, game_mode_texty, _T("本地模式"));
+	}
+	else if (game_mode == NETWORK_MODE_SERVER || game_mode == NETWORK_MODE_CLIENT) {
+		outtextxy(game_mode_textx + 5 * single_char * PIECE_SIZE, game_mode_texty, _T("联网模式"));
+	}
+	else if (game_mode == NETWORK_MODE_AI) {
+		outtextxy(game_mode_textx + 5 * single_char * PIECE_SIZE, game_mode_texty, _T("人机模式"));
+	}
+
+	//3.3连接状态显示
+	settextcolor(BLACK);
+	outtextxy(network_mode_textx, network_mode_texty, _T("连接状态："));
+	if (isConnected) {
+		settextcolor(GREEN);
+		outtextxy(network_mode_textx + 5 * single_char * PIECE_SIZE, network_mode_texty, _T("已连接"));
+	}
+	else {
+		settextcolor(RED);
+		outtextxy(network_mode_textx + 5 * single_char * PIECE_SIZE, network_mode_texty, _T("未连接"));
+	}
+
+	//4、游戏卡牌区元素
+	setlinecolor(BLACK);
+	setlinestyle(PS_SOLID, 2);
+	double card_board_left = BOARD_SIZE + ELEMENT_GAP;
+	double card_board_top = game_mode_texty + single_char * PIECE_SIZE + 2 * ELEMENT_GAP;
+	double card_board_right = BOARD_SIZE + INFO_SIZE - ELEMENT_GAP;
+	double card_board_bottom = card_board_top + INFO_SIZE - 8 * ELEMENT_GAP;
+	roundrect(card_board_left, card_board_top, card_board_right, card_board_bottom, 15, 15);
+
+	//5、游戏聊天区元素
+	double chat_board_left = card_board_left;
+	double chat_board_top = card_board_bottom + ELEMENT_GAP;
+	double chat_board_right = card_board_right;
+	double chat_board_bottom = chat_board_top + 2 * ELEMENT_GAP;
+	roundrect(chat_board_left, chat_board_top, chat_board_right, chat_board_bottom, 10, 10);
+
+	setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y);	//恢复坐标原点
 }
 
 void Draw_Highlight(int x, int y, int Board[LINE_NUM][LINE_NUM]) {
-	
+
 	//1、保存原有数据
 	highlightX = x;	//记录高光位置（对应二维棋盘坐标）
 	highlightY = y;
@@ -274,7 +463,7 @@ void Draw_Highlight(int x, int y, int Board[LINE_NUM][LINE_NUM]) {
 
 	//3、获取图像棋盘对应位置（putimage需要图片左上角位置，circle需要圆心位置，因此不需要OFFSET）
 	setorigin(0, 0);	//设置坐标原点
-	int centerX = BOARD_MARGIN_REAL + PIECE_SIZE * highlightX;	
+	int centerX = BOARD_MARGIN_REAL + PIECE_SIZE * highlightX;
 	int centerY = BOARD_MARGIN_REAL + PIECE_SIZE * highlightY;
 
 	//4、绘制高光
@@ -285,7 +474,7 @@ void Draw_Highlight(int x, int y, int Board[LINE_NUM][LINE_NUM]) {
 	setlinestyle(&origin_line_style);
 }
 
-void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]) {  
+void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]) {
 
 	if (highlightX == -1 || highlightY == -1) return;	//没有高光提早退出
 
@@ -307,7 +496,7 @@ void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]) {
 	//4、重绘背景与网格
 	int left = centerX - PIECE_SIZE / 2;	//获得背景重绘区域（比高光微大些）
 	int top = centerY - PIECE_SIZE / 2;
-	
+
 	//4.1、绘制背景
 	putimage(left, top, PIECE_SIZE + 1, PIECE_SIZE + 1, &img_game_background, left, top);	//重绘背景(后面两个left与top代表原图片的x,y坐标)
 
@@ -596,8 +785,8 @@ void Turn_Draw_Timer(int player) {
 	if (turn_remain_time <= 5 && turn_remain_time > 0) {
 		flash_count++;
 		if (flash_count % FLASH_CYCLE < FLASH_CYCLE / 2) {
-			if(player==BLACK)	putimage(timer_black_x, timer_black_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空黑方回合计时区
-			else if(player==WHITE)	putimage(timer_white_x, timer_white_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空白方回合计时区
+			if (player == BLACK)	putimage(timer_black_x, timer_black_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空黑方回合计时区
+			else if (player == WHITE)	putimage(timer_white_x, timer_white_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空白方回合计时区
 		}
 		else {
 			settextcolor(RED);
@@ -614,88 +803,6 @@ void Turn_Draw_Timer(int player) {
 	else {
 		flash_count = 0;
 	}
-
-	setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y);	//恢复坐标原点
-}
-
-void Draw_Gaming_Elements() {
-
-	setorigin(0, 0);	//设置坐标原点
-
-	//1、游戏功能区元素
-	int button_all_y = BOARD_SIZE - BUTTON_POS - BUTTON_SIZE;
-	solidcircle(button_restart_x, button_all_y, BUTTON_SIZE / 2);		//重启按钮
-	outtextxy(button_restart_x, button_all_y, _T("重"));
-
-	solidcircle(button_takeback_x, button_all_y, BUTTON_SIZE / 2);		//悔棋按钮
-	outtextxy(button_takeback_x, button_all_y, _T("悔"));
-
-	solidcircle(button_exit_x, button_all_y, BUTTON_SIZE / 2);			//退出按钮
-	outtextxy(button_exit_x, button_all_y, _T("退"));
-
-	solidcircle(button_setting_x, button_all_y, BUTTON_SIZE / 2);		//设置按钮
-	outtextxy(button_setting_x, button_all_y, _T("设"));
-
-	solidcircle(button_music_x, button_all_y, BUTTON_SIZE / 2);		//音乐按钮
-	outtextxy(button_music_x, button_all_y, _T("音"));
-
-	//2、游戏联机区元素
-	//2.1设置字体
-	setbkmode(TRANSPARENT);	//文本背景透明
-	LOGFONT fontStyle;	//创建字体结构体
-	gettextstyle(&fontStyle);	//获取当前字体设置
-	fontStyle.lfQuality = ANTIALIASED_QUALITY;	//启用抗锯齿
-	fontStyle.lfWeight = FONT_WEIGHT;	//设置字体粗细
-	fontStyle.lfHeight = PIECE_SIZE / 2;	//设置字体高度
-	_tcscpy_s(fontStyle.lfFaceName, _T("微软雅黑"));
-	settextstyle(&fontStyle);	//应用新字体设置
-
-	//2.2游戏模式显示
-	double single_char = 0.35;
-	double game_mode_textx = BOARD_SIZE + ELEMENT_GAP;
-	double network_mode_textx = BOARD_SIZE + INFO_SIZE - 2 * ELEMENT_GAP - 8 * single_char * PIECE_SIZE;
-	double game_mode_texty = PIECE_SIZE + 2 * ELEMENT_GAP + PIECE_SIZE + 3 * ELEMENT_GAP;
-	double network_mode_texty = game_mode_texty;
-	settextcolor(BLACK);
-	outtextxy(game_mode_textx, game_mode_texty, _T("当前模式："));
-	settextcolor(BLUE);
-	if (game_mode == NETWORK_MODE_LOCAL) {
-		outtextxy(game_mode_textx + 5 * single_char * PIECE_SIZE, game_mode_texty, _T("本地模式"));
-	}
-	else if (game_mode == NETWORK_MODE_SERVER || game_mode == NETWORK_MODE_CLIENT) {
-		outtextxy(game_mode_textx + 5 * single_char * PIECE_SIZE, game_mode_texty, _T("联网模式"));
-	}
-	else if (game_mode == NETWORK_MODE_AI) {
-		outtextxy(game_mode_textx + 5 * single_char * PIECE_SIZE, game_mode_texty, _T("人机模式"));
-	}
-
-	//2.3连接状态显示
-	settextcolor(BLACK);
-	outtextxy(network_mode_textx, network_mode_texty, _T("连接状态："));
-	if (isConnected) {
-		settextcolor(GREEN);
-		outtextxy(network_mode_textx + 5 * single_char * PIECE_SIZE, network_mode_texty, _T("已连接"));
-	}
-	else {
-		settextcolor(RED);
-		outtextxy(network_mode_textx + 5 * single_char * PIECE_SIZE, network_mode_texty, _T("未连接"));
-	}
-
-	//3、游戏卡牌区元素
-	setlinecolor(BLACK);
-	setlinestyle(PS_SOLID, 2);
-	double card_board_left = BOARD_SIZE + ELEMENT_GAP;
-	double card_board_top = game_mode_texty + single_char * PIECE_SIZE + 2 * ELEMENT_GAP;
-	double card_board_right = BOARD_SIZE + INFO_SIZE - ELEMENT_GAP;
-	double card_board_bottom = card_board_top + INFO_SIZE - 8 * ELEMENT_GAP;
-	roundrect(card_board_left, card_board_top, card_board_right, card_board_bottom, 15, 15);
-
-	//4、游戏聊天区元素
-	double chat_board_left = card_board_left;
-	double chat_board_top = card_board_bottom + ELEMENT_GAP;
-	double chat_board_right = card_board_right;
-	double chat_board_bottom = chat_board_top + 2 * ELEMENT_GAP;
-	roundrect(chat_board_left, chat_board_top, chat_board_right, chat_board_bottom, 10, 10);
 
 	setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y);	//恢复坐标原点
 }
@@ -806,13 +913,56 @@ int Judge_Win_Timer(int player) {
 	return EMPTY;
 }
 
-//3、游戏玩法函数
+//4、游戏玩法函数
 //悔棋函数
 void Take_Back_Move() {
 	return;
 }
 
-//4、网络功能函数
+void Restart_Game(int Board[LINE_NUM][LINE_NUM], int* player) {
+
+	//清空棋盘
+	for (int i = 0; i < LINE_NUM; i++) {
+		for (int j = 0; j < LINE_NUM; j++) {
+			Board[i][j] = EMPTY;
+		}
+	}
+
+	//重置玩家
+	*player = BLACK;
+
+	//重置计时器
+	time_total_black = TIME_LIMIT_TOTAL;
+	time_total_white = TIME_LIMIT_TOTAL;
+	game_time_running = true;
+	player_time_running = true;
+	Turn_Timer_Start();	//重置计时
+
+	//清除高亮
+	Clear_Highlight(Board);
+
+	//网络模式重启
+	if (NetworkMode == NETWORK_MODE_SERVER) {
+		isMyturn = true;	//服务端先手
+	}
+	else if (NetworkMode == NETWORK_MODE_CLIENT) {
+		isMyturn = false;	//服务器后手
+	}
+	else {
+		isMyturn = true;	//本地模式始终先手
+	}
+
+	//重绘棋盘和信息区
+	setorigin(0, 0);
+	putimage(0, 0, &img_game_background);
+	Draw_Board();
+	Draw_Info();
+	
+
+	FlushBatchDraw();
+}
+
+//5、网络功能函数
 bool Init_Winsock() {
 
 	WSADATA wsaData;	//WSADATA用于存储Winsock初始化信息与版本数据
@@ -822,7 +972,7 @@ bool Init_Winsock() {
 		return false;
 	}
 	else {
-		printf_s("Winsock初始化成功\n");
+		//printf_s("Winsock初始化成功\n");
 		return true;
 	}
 }
@@ -907,7 +1057,7 @@ bool Accept_Connection() {
 
 	sockaddr_in ClientAddr;		//存储客户端地址信息
 	int ClientAddr_Size = sizeof(ClientAddr);	//accpet()只能接受长度的地址
-	
+
 	ClientSocket = accept(ServerSocket, (sockaddr*)&ClientAddr, &ClientAddr_Size);
 	if (ClientSocket == INVALID_SOCKET) {
 		printf("接受连接失败：%d\n", WSAGetLastError());
@@ -992,6 +1142,8 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player) {
 
 }
 
+
+
 //=====================/主函数/=====================
 int main() {
 
@@ -1012,11 +1164,13 @@ int main() {
 
 	switch (game_mode) {
 	case NETWORK_MODE_LOCAL:
+
 		NetworkMode = NETWORK_MODE_LOCAL;
 		printf_s("本地对战模式\n");
 		isMyturn = true;	//本地对战始终本端下棋
 		break;
 	case NETWORK_MODE_SERVER:
+
 		NetworkMode = NETWORK_MODE_SERVER;
 		printf_s("创建服务器\n");
 		if (Create_Server()) {
@@ -1034,6 +1188,7 @@ int main() {
 		}
 		break;
 	case NETWORK_MODE_CLIENT:
+
 		NetworkMode = NETWORK_MODE_CLIENT;
 		printf_s("输入服务器IP地址：");
 		scanf_s("%s", ServerIP, (unsigned)_countof(ServerIP));
@@ -1049,196 +1204,259 @@ int main() {
 		}
 		break;
 	default:
+
 		printf_s("无效选择，默认本地模式\n");
 		NetworkMode = NETWORK_MODE_LOCAL;
 		isMyturn = true;					//本地均是本端下棋
 		break;
 	}
 
+	Texture_Load();
 
-
-	//=====================/一、游戏初始化阶段/=====================
-
-	//1、导入游戏素材
-	Texture_Load();	//图片素材导入
-
-	//mciSendString(_T("open ./素材/music1.mp3"), NULL, 0, NULL);    //打开音乐
-	//mciSendString(_T("play ./素材/music1.mp3 repeat"), NULL, 0, NULL);    //重复播放音乐
-
-	//2、初始化图形界面
 	initgraph(BOARD_SIZE + INFO_SIZE, BOARD_SIZE, EX_DBLCLKS);	//创建画布，支持双击参数传入
-	HWND hConsole = GetConsoleWindow();	//展示控制台用于调试
+	BeginBatchDraw();											//启动批量绘制 (采用双缓冲技术减少闪烁)
+
+	HWND hConsole = GetConsoleWindow();							//展示控制台用于调试
 	ShowWindow(hConsole, SW_SHOW);
 
-	//3、启用双缓冲批量绘制棋盘
-	BeginBatchDraw();	//启动批量绘制 (采用双缓冲技术减少闪烁)
-	Draw_Board();	//绘制棋盘
-	Draw_Info();	//绘制信息区
+	GameState currentState = PLAYING;
 
-	//4、游戏数据初始化
-	int board[LINE_NUM][LINE_NUM] = { {EMPTY} };	//棋盘二维数组表示，并初始化
-	int player = BLACK;	//标记下棋手
-	int start = START;	//游戏状态标记
-	game_remain_time = time(NULL);	//初始化总游戏时间开始
-	Turn_Timer_Start();	//初始化计时器
+	while (currentState != EXIT) {
 
-	Draw_Gaming_Elements();	//绘制游戏界面元素
+		switch (currentState) {
+		case MENU:
+		{
+			//MENU绘制与功能函数
 
-	//=====================/二、游戏主循环阶段/=====================
+			cleardevice();	//清空画面
 
-	while (true) {
+			FlushBatchDraw();	//刷新显示
 
-		//1、更新计时器和游戏状态
-		Turn_Timer_Update(player);	//计算剩余时间
-		Turn_Draw_Timer(player);	//绘制倒计时
-
-		Player_Point(BLACK + WHITE - player);	//显示玩家指向
-		FlushBatchDraw();	//刷新显示
-
-		//2、处理网络事件
-		if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
-			Network_Mode_Event(board, player);
+			break;
 		}
 
-		//3、处理鼠标信息
-		ExMessage msg;
-		if (peekmessage(&msg, EX_MOUSE, false)) {	//检测是否有鼠标信息，有再进入有阻塞的鼠标信息提取//必须使用if，使用while会因为系统或硬件原因容易进入死循环
+		case INSTRUCTION:
+		{
+			//INSTRUCTION绘制与功能函数
 
-			//3.1、计算鼠标坐标与棋盘坐标对应关系
-			getmessage(&msg, EX_MOUSE);
+			cleardevice();	//清空画面
 
-			Game_Music_Control(msg);	//音乐控制模块
+			FlushBatchDraw();	//刷新显示
 
-			int boardX = (msg.x - BOARD_MARGIN_REAL + PIECE_SIZE / 2) / PIECE_SIZE;	//计算二维数组棋盘对应位置
-			int boardY = (msg.y - BOARD_MARGIN_REAL + PIECE_SIZE / 2) / PIECE_SIZE;	//添加20用于四舍五入提高用户体验
-			int centerX = BOARD_MARGIN_REAL + PIECE_SIZE * boardX - OFFSET;	//计算图像棋盘对应位置
-			int centerY = BOARD_MARGIN_REAL + PIECE_SIZE * boardY - OFFSET;
-			//printf("对应棋盘X=%d，Y=%d\n", boardX, boardY);	//棋盘对应位置测试代码
+			break;
+		}
 
+		case MULTIPLAYER_SERVER:
+		{
+			//MULTIPLAYER_SERVER绘制与功能函数
 
-			//3.2、鼠标移动时绘制高亮提示下棋位置
-			if ((boardX >= 0 && boardX <= LINE_NUM - 1) && (boardY >= 0 && boardY <= LINE_NUM - 1)) {
-				if (msg.message == WM_MOUSEMOVE && board[boardX][boardY] == EMPTY) {
-					Clear_Highlight(board);	//清理原有高光
-					Draw_Highlight(boardX, boardY, board);	//绘制高光
-					FlushBatchDraw();	//刷新显示
+			cleardevice();	//清空画面
+
+			FlushBatchDraw();	//刷新显示
+
+			break;
+		}
+
+		case MULTIPLAYER_CLIENT:
+		{
+			//MULTIPLAYER_CLIENT绘制与功能函数
+
+			cleardevice();	//清空画面
+
+			double server_fontX, server_fontY;
+			//outtextxy(server_fontX, server_fontY, _T("请输入服务器IP"));
+
+			FlushBatchDraw();	//刷新显示
+
+			break;
+		}
+
+		case PLAYING:
+		{
+			//PLAYING绘制与功能函数
+
+			//=============================/一、初始化/=============================
+
+			int board[LINE_NUM][LINE_NUM] = { {EMPTY} };		//棋盘二维数组表示，并初始化
+			int player = BLACK;									//标记下棋手
+
+			game_remain_time = time(NULL);						//初始化总游戏时间开始
+			Turn_Timer_Start();									//初始化计时器
+
+			cleardevice();										//清空画面
+			Draw_Board();										//绘制棋盘
+			Draw_Info();										//绘制信息区
+
+			//=============================/二、游戏主体/=============================
+
+			while (true) {
+
+				//绘制指向与剩余时间
+				Player_Point(BLACK + WHITE - player);																//显示玩家指向
+
+				Turn_Timer_Update(player);																			//计算剩余时间
+				Turn_Draw_Timer(player);																			//绘制倒计时
+
+				FlushBatchDraw();																					//刷新显示
+
+				//处理接受的网络信号
+				if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
+					Network_Mode_Event(board, player);
 				}
-			}
-			else {
-				Clear_Highlight(board);	//若不符合条件也进行清理操作
-				FlushBatchDraw();	//刷新显示
-			}
-
-			//3.3、执行下棋机制与绘制棋子操作（为防止误触双击下棋）
-			if (msg.message == WM_LBUTTONDBLCLK && board[boardX][boardY] == 0 && (boardX >= 0 && boardX <= LINE_NUM - 1) && (boardY >= 0 && boardY <= LINE_NUM - 1)) {
-
-				//网络模式下，检查是否是我方下棋，不是则循环跳过
-				if (NetworkMode != NETWORK_MODE_LOCAL && !isMyturn) {
+				if (NetworkMode != NETWORK_MODE_LOCAL && !isMyturn) {												//网络模式检查是否是我方下棋（不是则循环跳过）
 					continue;
 				}
 
-				if (player == BLACK) {
+				//处理本地的鼠标信号
+				ExMessage msg;
+				if (peekmessage(&msg, EX_MOUSE, false)) {
 
-					Clear_Highlight(board);	//清理高光
-					Put_Transparent_Image(centerX, centerY, &img_black_opp, &img_black);	//绘制黑棋
-					board[boardX][boardY] = BLACK;
+					getmessage(&msg, EX_MOUSE);																		//获取鼠标信息
+					Game_Music_Control(msg);																		//音乐开关按键
 
-					//发送网络数据包
-					if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
-						//设定回合信息
-						NetworkMessage turnMsg;
-						turnMsg.msgtype = MSG_MOVE;	//消息类型为下棋
-						turnMsg.x = boardX;
-						turnMsg.y = boardY;
-						turnMsg.player = BLACK;
+					if (Switch_To_Setting(msg)) {																	//跳转设置页面
+						currentState = SETTING;	
+						break;
+					}
+					if (Switch_To_Menu(msg)) {
+						currentState = MENU;																		//跳转至主页面
+						break;
+					}
 
-						//发送数据包
-						if (Send_Network_Message(ClientSocket, turnMsg)) {
-							printf("发送黑棋落子：(%d , %d)\n", turnMsg.x, turnMsg.y);
+					if (Is_InCirecle(msg.x, msg.y, button_restart_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE / 2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN) {
+						printf("重启游戏\n");
+						Restart_Game(board, &player);																//重启游戏
+						continue;
+					}
+
+					//计算图像坐标与数组坐标
+					int boardX = (msg.x - BOARD_MARGIN_REAL + PIECE_SIZE / 2) / PIECE_SIZE;							//计算二维数组棋盘对应位置
+					int boardY = (msg.y - BOARD_MARGIN_REAL + PIECE_SIZE / 2) / PIECE_SIZE;							//添加20用于四舍五入提高用户体验
+					int centerX = BOARD_MARGIN_REAL + PIECE_SIZE * boardX - OFFSET;									//计算图像棋盘对应位置
+					int centerY = BOARD_MARGIN_REAL + PIECE_SIZE * boardY - OFFSET;
+					//printf("对应棋盘X=%d，Y=%d\n", boardX, boardY);												//棋盘对应位置测试代码
+
+					//处理高光与下棋
+					if ((boardX >= 0 && boardX <= LINE_NUM - 1) && (boardY >= 0 && boardY <= LINE_NUM - 1)) {
+
+						//鼠标移动时绘制高亮提示下棋位置
+						if (msg.message == WM_MOUSEMOVE && board[boardX][boardY] == EMPTY) {
+							Clear_Highlight(board);																	//清理原有高光
+							Draw_Highlight(boardX, boardY, board);													//绘制高光
+						}
+						//执行下棋机制与绘制棋子操作（为防止误触双击下棋）
+						if (msg.message == WM_LBUTTONDBLCLK && board[boardX][boardY] == EMPTY) {
+
+							Clear_Highlight(board);																	//清理高光
+
+							if (player == BLACK) {
+								//处理本地下棋
+								Put_Transparent_Image(centerX, centerY, &img_black_opp, &img_black);				//图像绘制黑棋
+								board[boardX][boardY] = BLACK;														//数组绘制黑棋
+
+								//发送下棋数据包
+								if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
+									//设定回合信息
+									NetworkMessage turnMsg;
+									turnMsg.msgtype = MSG_MOVE;														//消息类型为下棋
+									turnMsg.x = boardX;
+									turnMsg.y = boardY;
+									turnMsg.player = BLACK;
+
+									//发送数据包
+									if (Send_Network_Message(ClientSocket, turnMsg)) {
+										printf("发送黑棋落子：(%d , %d)\n", turnMsg.x, turnMsg.y);
+									}
+									isMyturn = false;																//发送完信息后，我端不下棋
+								}
+							}
+							else if (player == WHITE) {
+								//处理本地下棋
+								Put_Transparent_Image(centerX, centerY, &img_white_opp, &img_white);				//图像绘制白棋
+								board[boardX][boardY] = WHITE;														//数组绘制白棋
+
+								//发送网络数据包
+								if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
+									//设定回合信息
+									NetworkMessage turnMsg;
+									turnMsg.msgtype = MSG_MOVE;														//消息类型为下棋
+									turnMsg.x = boardX;
+									turnMsg.y = boardY;
+									turnMsg.player = WHITE;
+
+									//发送数据包
+									if (Send_Network_Message(ClientSocket, turnMsg)) {
+										printf("发送白棋落子：(%d , %d)\n", turnMsg.x, turnMsg.y);
+									}
+									isMyturn = false;																//发送完信息后，我端不下棋
+								}
+							}
+
+							if (Judge_Win_Chess(board, boardX, boardY, player) != EMPTY) {
+								choice = _getch();																	//判断输赢
+							}
+
+							player = BLACK + WHITE - player;														//棋方转换
+							Turn_Timer_Start();																		//初始化计时器
+
+							//FlushBatchDraw();																		//刷新显示
 						}
 
-						isMyturn = false;		//发送完信息后，我端不下棋
 					}
-
-					if (Judge_Win_Chess(board, boardX, boardY, player) == BLACK) {
-						choice = _getch();	//判断输赢
+					else {
+						Clear_Highlight(board);																		//若不符合条件也进行清理操作
 					}
-					player = WHITE;	//棋方转换
+					FlushBatchDraw();																				//刷新显示
 
-					Turn_Timer_Start();	//初始化计时器
+					//立即更新计时器
+					Turn_Timer_Update(player);																		//计算剩余时间
+					Turn_Draw_Timer(player);																		//绘制倒计时
+					FlushBatchDraw();																				//刷新显示
 				}
 
-				else if (player == WHITE) {
-
-					Clear_Highlight(board);	//清理高光
-					Put_Transparent_Image(centerX, centerY, &img_white_opp, &img_white);	//绘制白棋
-					board[boardX][boardY] = WHITE;
-
-					//发送网络数据包
-					if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
-						//设定回合信息
-						NetworkMessage turnMsg;
-						turnMsg.msgtype = MSG_MOVE;	//消息类型为下棋
-						turnMsg.x = boardX;
-						turnMsg.y = boardY;
-						turnMsg.player = WHITE;
-
-						//发送数据包
-						if (Send_Network_Message(ClientSocket, turnMsg)) {
-							printf("发送白棋落子：(%d , %d)\n", turnMsg.x, turnMsg.y);
-						}
-
-						isMyturn = false;		//发送完信息后，我端不下棋
-					}
-
-					if (Judge_Win_Chess(board, boardX, boardY, player) == WHITE) {
-						choice = _getch();	//判断输赢
-					}
-					player = BLACK;	//棋方转换
-
-					Turn_Timer_Start();	//初始化计时器
+				//对时间进行处理
+				int total_timer_result = Judge_Win_Timer(player);
+				if (total_timer_result != EMPTY) {																	//有玩家总时间耗尽游戏结束
+					choice = _getch();																				//判断输赢
 				}
+				else if (!game_time_running) {																		//倒计时结束强制换边
+					player = BLACK + WHITE - player;																//强制换边
+					if (NetworkMode != NETWORK_MODE_LOCAL && isMyturn == true) {
+						isMyturn = false;
+					}
+					else if (NetworkMode != NETWORK_MODE_LOCAL && isMyturn == false) {
+						isMyturn = true;
+					}
+					Turn_Timer_Start();																				//初始化计时器
+					//FlushBatchDraw();																				//刷新显示
+				}
+				FlushBatchDraw();																					//刷新计时器显示
+				//Sleep(10);																						//短暂休眠减少CPU占用
 
-				FlushBatchDraw();	//刷新显示
 			}
 
-			//3.4、立即更新计时器
-			Turn_Timer_Update(player);	//计算剩余时间
-			Turn_Draw_Timer(player);	//绘制倒计时
+			break;
+		}
+
+		case SETTING:
+		{
+			//SETTING绘制与功能函数
+
+			cleardevice();	//清空画面
+
 			FlushBatchDraw();	//刷新显示
 
+			break;
 		}
 
-		//4、有玩家总时间耗尽游戏结束
-		int total_timer_result = Judge_Win_Timer(player);
-		if (total_timer_result != EMPTY) {
-			choice = _getch();	//判断输赢
 		}
-		//5、倒计时结束强制换边
-		else if (!game_time_running) {
-			player = BLACK + WHITE - player;	//强制换边
-			if (NetworkMode != NETWORK_MODE_LOCAL && isMyturn == true) {
-				isMyturn = false;
-			}
-			else if (NetworkMode != NETWORK_MODE_LOCAL && isMyturn == false) {
-				isMyturn = true;
-			}
-			Turn_Timer_Start();	//初始化计时器
-			FlushBatchDraw();	//刷新显示
-		}
-
-		//5、刷新计时器显示
-		FlushBatchDraw();	//刷新显示
-		//Sleep(10);	//短暂休眠减少CPU占用
 	}
 
-	//=====================/三、游戏结束资源清理阶段/=====================
-
-	//1、清理游戏资源
+	//清理游戏资源
 	EndBatchDraw();	//结束批量绘制
 	closegraph();	//关闭画布
 
-	//2、清理网络资源
+	//清理网络资源
 	if (ClientSocket != INVALID_SOCKET) {
 		NetworkMessage QuitMSG;
 		QuitMSG.msgtype = MSG_QUIT;
