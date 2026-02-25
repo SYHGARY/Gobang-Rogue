@@ -11,6 +11,7 @@
 #include<ws2tcpip.h>	//Winsock2 API拓展
 #include<windows.h>		//Windows API
 #include<mmsystem.h>	//多媒体API
+#include <shellscalingapi.h>
 
 //图像库头文件
 #include<easyx.h>
@@ -30,6 +31,7 @@
 #pragma comment(lib, "Msimg32.lib") // Windows图像处理库
 #pragma comment(lib, "user32.lib")  // 用户界面库
 #pragma comment(lib, "gdi32.lib")   // GDI图形库
+#pragma comment(lib, "Shcore.lib")
 
 //=====================/常量设定/=====================
 
@@ -86,6 +88,8 @@
 #define MSG_MOVE 0					//落子信息
 #define MSG_QUIT 1					//退出信息
 #define MSG_CHAT 2					//聊天信息
+#define MSG_TIMEOUT 3				//超时信息
+#define MSG_TIMEOUT_TOTAL 4			//总时间耗尽信息
 
 //=====================/枚举量设定/=====================
 
@@ -223,14 +227,14 @@ bool Switch_To_Menu(ExMessage msg);												//跳转到主页面
 void Take_Back_Move();
 
 //6、网络功能函数声明
-bool Parse_IPPort(const char* input, char* ip, int host_len, int& port);	//分离IP:端口
-bool Init_Winsock();														//初始化Winsock
-bool Create_Server();														//创建服务器（服务端）
-bool Connect_Server(const char* ip, int port);								//连接服务器（客户端）
-bool Accept_Connection();													//同意连接（服务端）
-bool Send_Network_Message(SOCKET socket, const NetworkMessage& msg);		//传输数据（客户端）
-bool Receive_Network_Message(SOCKET socket, NetworkMessage& msg);			//接收数据（服务端）
-void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player);		//网络模式对战处理
+bool Parse_IPPort(const char* input, char* ip, int host_len, int& port);									//分离IP:端口
+bool Init_Winsock();																						//初始化Winsock
+bool Create_Server();																						//创建服务器（服务端）
+bool Connect_Server(const char* ip, int port);																//连接服务器（客户端）
+bool Accept_Connection();																					//同意连接（服务端）
+bool Send_Network_Message(SOCKET socket, const NetworkMessage& msg);										//传输数据（客户端）
+bool Receive_Network_Message(SOCKET socket, NetworkMessage& msg);											//接收数据（服务端）
+void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMyturn, bool& game_over);		//网络模式对战处理
 
 //=====================/函数具体内容/=====================
 
@@ -1284,9 +1288,9 @@ bool Receive_Network_Message(SOCKET socket, NetworkMessage& msg) {
 	return ByteRecv > 0;
 }
 
-void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player) {
+void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMyturn, bool& game_over) {
 
-	if (!isConnected)	return;	//没有连接成功提前退出
+	if (!isConnected || game_over)	return;	//没有连接成功提前退出
 
 	setorigin(BOARD_SIZE / 2, BOARD_SIZE / 2);	//设置初始坐标
 
@@ -1298,6 +1302,7 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player) {
 	if (Receive_Network_Message(ClientSocket, msg)) {	//使用ServerSocket监听，使用ClientSocket双向通信
 		switch (msg.msgtype) {
 		case MSG_MOVE:
+		{
 			if (Board[msg.x][msg.y] == EMPTY) {
 
 				Clear_Highlight(Board);
@@ -1329,21 +1334,62 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player) {
 				FlushBatchDraw();	//刷新显示
 			}
 			break;
+		}
 		case MSG_QUIT:
+		{
 			printf_s("对方断开连接\n");
 			isConnected = false;
 			break;
 		}
+		case MSG_TIMEOUT:
+		{
+			if (msg.player == player) {
 
-		//恢复为阻塞状态
-		mode = 0;	//0为阻塞
-		ioctlsocket(ClientSocket, FIONBIO, &mode);
+				//执行与本地超时相同的换边逻辑
+				player = BLACK + WHITE - player;
+				isMyturn = !isMyturn;               //翻转回合标志
+				Turn_Timer_Start();                  //重置本地计时器
+				Clear_Highlight(Board);
+				FlushBatchDraw();
+			}
+			break;
+		}
+		case MSG_TIMEOUT_TOTAL:
+		{
+			// 清除原有文字区域，显示胜利信息
+			setorigin(0, 0);
 
-		setorigin(0, 0);	//恢复初始坐标
-	}
+			//字体结构调整
+			setbkmode(TRANSPARENT);	//文本背景透明
+			settextcolor(BLACK);	//文字颜色黑色
+			LOGFONT fontStyle;	//创建字体结构体
+			gettextstyle(&fontStyle);	//获取当前字体设置
+			fontStyle.lfQuality = ANTIALIASED_QUALITY;	//启用抗锯齿
+			fontStyle.lfWeight = FONT_WEIGHT;	//设置字体粗细
+			fontStyle.lfHeight = PIECE_SIZE;	//设置字体高度
+			_tcscpy_s(fontStyle.lfFaceName, _T("微软雅黑"));
+			settextstyle(&fontStyle);	//应用新字体设置
 
+			putimage(BOARD_SIZE + INFO_SIZE / 2 - 1.5 * PIECE_SIZE, FONT_POS, PIECE_SIZE * 4 * 0.75, PIECE_SIZE, &img_info_background, INFO_SIZE / 2 - 1.5 * PIECE_SIZE, FONT_POS);
+			if (msg.player == BLACK) {
+				outtextxy(BOARD_SIZE + INFO_SIZE / 2 - 1.5 * PIECE_SIZE, FONT_POS, _T("黑方胜利"));
+			}
+			else if (msg.player == WHITE) {
+				outtextxy(BOARD_SIZE + INFO_SIZE / 2 - 1.5 * PIECE_SIZE, FONT_POS, _T("白方胜利"));
+			}
+			FlushBatchDraw();
+			_getch();          // 等待用户按键
+			game_over = true;  // 结束游戏
+		}
+		break;
+		}
+		}
 
+	//恢复为阻塞状态
+	mode = 0;	//0为阻塞
+	ioctlsocket(ClientSocket, FIONBIO, &mode);
 
+	setorigin(0, 0);	//恢复初始坐标
 }
 
 
@@ -1357,6 +1403,7 @@ int main() {
 	initgraph(BOARD_SIZE + INFO_SIZE, BOARD_SIZE, EX_DBLCLKS);	//创建画布，支持双击参数传入
 	BeginBatchDraw();											//启动批量绘制 (采用双缓冲技术减少闪烁)
 
+	SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);		//去除DPI放缩
 	HWND hConsole = GetConsoleWindow();							//展示控制台用于调试
 	ShowWindow(hConsole, SW_SHOW);
 
@@ -1553,6 +1600,8 @@ int main() {
 
 			int board[LINE_NUM][LINE_NUM] = { {EMPTY} };		//棋盘二维数组表示，并初始化
 			int player = BLACK;									//标记下棋手
+			bool game_over = false;								//游戏结束标志
+			bool timeout_total_sent = false;					//防止重复发送时间耗尽消息
 
 			game_remain_time = time(NULL);						//初始化总游戏时间开始
 			Turn_Timer_Start();									//初始化计时器
@@ -1564,7 +1613,7 @@ int main() {
 
 			//=============================/二、游戏主体/=============================
 
-			while (true) {
+			while (!game_over) {
 
 				//绘制指向与剩余时间
 				Player_Point(BLACK + WHITE - player);																//显示玩家指向
@@ -1576,7 +1625,7 @@ int main() {
 
 				//处理接受的网络信号
 				if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
-					Network_Mode_Event(board, player);
+					Network_Mode_Event(board, player, isMyturn, game_over);
 				}
 				if (NetworkMode != NETWORK_MODE_LOCAL && !isMyturn) {												//网络模式检查是否是我方下棋（不是则循环跳过）
 					continue;
@@ -1693,24 +1742,47 @@ int main() {
 				//对时间进行处理
 				int total_timer_result = Judge_Win_Timer(player);
 				if (total_timer_result != EMPTY) {																	//有玩家总时间耗尽游戏结束
-					choice = _getch();																				//判断输赢
+					// 联网模式下发送总时间耗尽消息（仅发送一次）
+					if (NetworkMode != NETWORK_MODE_LOCAL && isConnected && !timeout_total_sent) {
+						NetworkMessage msg;
+						msg.msgtype = MSG_TIMEOUT_TOTAL;
+						msg.player = total_timer_result;															//胜方
+						Send_Network_Message(ClientSocket, msg);
+						timeout_total_sent = true;
+					}
+					FlushBatchDraw();
+					_getch();																						//等待用户按键
+					game_over = true;																				//结束游戏
+					break;																	
 				}
 				else if (!game_time_running) {																		//倒计时结束强制换边
-					player = BLACK + WHITE - player;																//强制换边
-					if (NetworkMode != NETWORK_MODE_LOCAL && isMyturn == true) {
-						isMyturn = false;
+					//超时发生：先发送超时消息（联网模式下），再执行本地换边
+					if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
+						NetworkMessage timeoutMsg;
+						timeoutMsg.msgtype = MSG_TIMEOUT;
+						timeoutMsg.player = player;																	// 记录超时时的玩家
+						Send_Network_Message(ClientSocket, timeoutMsg);
 					}
-					else if (NetworkMode != NETWORK_MODE_LOCAL && isMyturn == false) {
-						isMyturn = true;
-					}
-					Turn_Timer_Start();																				//初始化计时器
-					//FlushBatchDraw();																				//刷新显示
+
+					//统一换边逻辑
+					auto handleTimeout = [&]() {
+						player = BLACK + WHITE - player;
+						if (NetworkMode != NETWORK_MODE_LOCAL) {
+							isMyturn = !isMyturn;																	//翻转回合标志
+						}
+						Turn_Timer_Start();																			//重置本地计时器
+						Clear_Highlight(board);																		//清除高光
+						FlushBatchDraw();
+					};
+
+					handleTimeout();																				//执行换边																	
 				}
 				FlushBatchDraw();																					//刷新计时器显示
 				//Sleep(10);																						//短暂休眠减少CPU占用
 
 			}
 
+			currentState = MENU;
 			break;
 		}
 
