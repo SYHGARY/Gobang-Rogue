@@ -3,7 +3,7 @@
 &emsp;![1](https://img.shields.io/badge/language-C++-blue.svg)
 ![2](https://img.shields.io/badge/graphics-EasyX-green.svg)
 ![3](https://img.shields.io/badge/network-Winsock-orange.svg)
-![4](https://img.shields.io/badge/license-MIT-lightgrey.svg)
+![4](https://img.shields.io/badge/license-NonCommercial%20Open%20Source-red)
 
 > **“打破定式，每局都是新体验”**
 
