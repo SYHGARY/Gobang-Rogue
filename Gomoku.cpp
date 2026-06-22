@@ -83,6 +83,13 @@
 #define MAIN_INSTRUCTION 6			//游戏说明
 #define MAIN_SETTING 7				//游戏设置
 #define MAIN_EXIT 8					//退出游戏
+#define MAIN_BACK 9					//返回上一级页面
+
+#define GAME_BUTTON_RESTART 10		//游戏内重启按钮
+#define GAME_BUTTON_TAKEBACK 11		//游戏内悔棋按钮
+#define GAME_BUTTON_MUSIC 12		//游戏内音乐按钮
+#define GAME_BUTTON_SETTING 13		//游戏内设置按钮
+#define GAME_BUTTON_EXIT 14			//游戏内退出按钮
 
 //网络状态常量
 #define MSG_MOVE 0					//落子信息
@@ -132,8 +139,8 @@ bool game_time_running;							//计时器是否运行
 bool player_time_running = true;				//是否有玩家总时间耗尽
 
 //图片公共变量
-IMAGE img_headline, img_headline_opp;									//游戏标题图片
-IMAGE img_start_background, img_game_background, img_info_background;	//背景图片
+IMAGE img_headline, img_headline_opp, img_menu_background;				//游戏标题图片
+IMAGE img_universal_background, img_game_background, img_info_background;	//背景图片
 IMAGE img_white, img_white_opp, img_black, img_black_opp;				//棋子图片
 
 //游戏坐标公共变量
@@ -155,12 +162,28 @@ int button_instruction_y = button_multiplayer_y + button_height + ELEMENT_GAP;
 int button_mainsetting_y = button_instruction_y + button_height + ELEMENT_GAP;
 int button_mainexit_y = button_mainsetting_y + button_height + ELEMENT_GAP;
 
+//主界面按钮交互状态
+#define BUTTON_STATE_NORMAL 0		//普通状态
+#define BUTTON_STATE_HOVER 1		//鼠标悬停状态
+#define BUTTON_STATE_PRESSED 2		//鼠标按压状态
+int main_hover_button = -1;			//当前悬停的主界面按钮
+int main_pressed_button = -1;		//当前按压的主界面按钮
+
 //多人界面按钮
 int button_multiall_x = (BOARD_SIZE + INFO_SIZE - button_width) / 2;
 
 int button_createserver_y = (BOARD_SIZE - 8 * ELEMENT_GAP - 2 * button_height) / 2;
 int button_joinserver_y = button_createserver_y + button_height + 8 * ELEMENT_GAP;
+int multi_hover_button = -1;			//当前悬停的多人界面按钮
+int multi_pressed_button = -1;		//当前按压的多人界面按钮
 
+//返回按钮
+int button_back_x = ELEMENT_GAP * 2;
+int button_back_y = ELEMENT_GAP * 2;
+int button_back_width = 120;
+int button_back_height = 45;
+int back_hover_button = -1;
+int back_pressed_button = -1;
 
 //游戏界面按钮
 int button_restart_x = BOARD_SIZE + BUTTON_GAP + BUTTON_SIZE / 2;																	//重新开始按钮X坐标 -> 第一个按钮
@@ -170,6 +193,9 @@ int button_setting_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTO
 int button_music_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//音乐按钮X坐标 -> 第三个按钮
 
 int button_playingall_y = BOARD_SIZE - BUTTON_POS - BUTTON_SIZE;																	//所有按钮Y坐标
+int game_hover_button = -1;			//当前悬停的游戏功能按钮
+int game_pressed_button = -1;			//当前按压的游戏功能按钮
+
 
 //游戏功能相关公共变量
 int game_mode;				//游戏模式
@@ -193,21 +219,25 @@ GameState currentState = MENU;
 void Texture_Load();															//素材导入函数
 void Game_Music_Control(ExMessage msg);											//游戏音乐控制函数
 void Put_Transparent_Image(int x, int y, const IMAGE* mask, const IMAGE* img);	//透明图片载入函数
+void Clear_Info_Background(int x, int y, int width, int height);				//按窗口坐标清理信息区背景
 bool Is_InCirecle(int px, int py, int cx, int cy, int radius);					//是否在圆内判断函数
 bool Is_InRect(int px, int py, int left, int top, int right, int bottom);		//是否在方框内判断函数
 
-//2、主界面与功能函数
-void Draw_Main();
-int Main_Switch(ExMessage msg);													//主页面跳转
-
-//3、多人界面与功能函数
-void Draw_Multi();
-int Multi_Switch(ExMessage msg);
-void Input_Box();
+bool Input_Box();
 
 //4、游戏界面与功能函数声明
 void Draw_Board();	//五子棋盘绘制函数
 void Draw_Info();	//信息区域绘制函数
+void Draw_Game_Button(int button_index, int button_state);						//游戏功能按钮绘制函数
+void Draw_All_Game_Buttons(int button_state);							//绘制全部游戏功能按钮
+int Game_Hit_Button(int x, int y);									//游戏功能按钮命中判断函数
+int Game_Button_Switch(ExMessage msg);							//游戏功能按钮交互函数
+void Draw_Text_Page(const TCHAR* title, const TCHAR* content);					//通用文字页面绘制函数
+void Draw_Instruction();												//游戏说明界面绘制函数
+void Draw_Setting();													//游戏设置界面绘制函数
+void Draw_Message_Page(const TCHAR* message);							//提示页面绘制函数
+void Draw_Back_Button(int button_state, IMAGE* background_img);			//返回按钮绘制函数
+int Back_Switch(ExMessage msg, IMAGE* background_img);					//返回按钮交互函数
 
 void Draw_Highlight(int x, int y, int Board[LINE_NUM][LINE_NUM]);	//绘制高光函数
 void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]);				//清理高光函数（局部重绘提高效率）
@@ -242,43 +272,74 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
 void Texture_Load() {
 
 	//MENU界面素材
-	loadimage(&img_headline, _T("./素材/headline.png"), HEADLINE_WIDTH, HEADLINE_HEIGHT);				//标题彩色图
-	loadimage(&img_headline_opp, _T("./素材/headline1.png"), HEADLINE_WIDTH, HEADLINE_HEIGHT);			//标题掩码图
+	loadimage(&img_headline, _T("./素材/headline.png"), HEADLINE_WIDTH, HEADLINE_HEIGHT);						//标题彩色图
+	loadimage(&img_headline_opp, _T("./素材/headline1.png"), HEADLINE_WIDTH, HEADLINE_HEIGHT);					//标题掩码图
+	loadimage(&img_menu_background, _T("./素材/menu_background1.png"), BOARD_SIZE + INFO_SIZE, BOARD_SIZE);		//封面背景图
 
 	//PLAYING界面素材
-	loadimage(&img_start_background, _T("./素材/background1.jpg"), BOARD_SIZE, BOARD_SIZE);				//游戏开始背景
-	loadimage(&img_game_background, _T("./素材/wood1.jpg"), BOARD_SIZE, BOARD_SIZE);					//游戏界面背景
-	loadimage(&img_info_background, _T("./素材/info_background.jpg"), INFO_SIZE, BOARD_SIZE);			//信息框背景
+	loadimage(&img_universal_background, _T("./素材/menu_background1.png"), BOARD_SIZE + INFO_SIZE, BOARD_SIZE);	//游戏开始背景
+	loadimage(&img_game_background, _T("./素材/wood1.jpg"), BOARD_SIZE, BOARD_SIZE);							//游戏界面背景
+	loadimage(&img_info_background, _T("./素材/info_background.jpg"), INFO_SIZE, BOARD_SIZE);					//信息框背景
 
-	loadimage(&img_white, _T("./素材/white.png"), PIECE_SIZE, PIECE_SIZE);								//白棋彩色图
-	loadimage(&img_white_opp, _T("./素材/white1.png"), PIECE_SIZE, PIECE_SIZE);							//白棋掩码图
-	loadimage(&img_black, _T("./素材/black.png"), PIECE_SIZE, PIECE_SIZE);								//黑棋彩色图
-	loadimage(&img_black_opp, _T("./素材/black1.png"), PIECE_SIZE, PIECE_SIZE);							//黑棋掩码图
+	loadimage(&img_white, _T("./素材/white.png"), PIECE_SIZE, PIECE_SIZE);										//白棋彩色图
+	loadimage(&img_white_opp, _T("./素材/white1.png"), PIECE_SIZE, PIECE_SIZE);									//白棋掩码图
+	loadimage(&img_black, _T("./素材/black.png"), PIECE_SIZE, PIECE_SIZE);										//黑棋彩色图
+	loadimage(&img_black_opp, _T("./素材/black1.png"), PIECE_SIZE, PIECE_SIZE);									//黑棋掩码图
 }
 
 void Game_Music_Control(ExMessage msg) {
 
-	if (Is_InCirecle(msg.x, msg.y, button_music_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE / 2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN) {
-
-		if (music_flag == 0) {
-			mciSendString(_T("close GameBGM"), NULL, 0, NULL);	//检测防止音乐重复打开
-			mciSendString(_T("open ./素材/music1.mp3 alias GameBGM"), NULL, 0, NULL);
-			mciSendString(_T("play GameBGM repeat"), NULL, 0, NULL);	//重复播放音乐
-			music_flag = 1;
-			printf_s("开启音乐\n");
-		}
-		else if (music_flag == 1) {
-			mciSendString(_T("stop GameBGM"), NULL, 0, NULL);    //关闭播放音乐
-			music_flag = 0;
-			printf_s("关闭音乐\n");
-		}
+	if (msg.message != WM_LBUTTONUP || Game_Hit_Button(msg.x, msg.y) != GAME_BUTTON_MUSIC) {
+		return;
 	}
+
+	if (music_flag == 0) {
+		mciSendString(_T("close GameBGM"), NULL, 0, NULL);	//检测防止音乐重复打开
+		mciSendString(_T("open ./素材/music1.mp3 alias GameBGM"), NULL, 0, NULL);
+		mciSendString(_T("play GameBGM repeat"), NULL, 0, NULL);	//重复播放音乐
+		music_flag = 1;
+		printf_s("开启音乐\n");
+	}
+	else if (music_flag == 1) {
+		mciSendString(_T("stop GameBGM"), NULL, 0, NULL);    //关闭播放音乐
+		music_flag = 0;
+		printf_s("关闭音乐\n");
+	}
+
+	Draw_Game_Button(GAME_BUTTON_MUSIC, BUTTON_STATE_HOVER);
 }
 
 void Put_Transparent_Image(int x, int y, const IMAGE* mask, const IMAGE* img) {
 
 	putimage(x, y, mask, SRCAND);	//掩码图，黑色部分代表透明区域
 	putimage(x, y, img, SRCPAINT);	//彩色图，保留掩码图黑色部分
+}
+
+void Clear_Info_Background(int x, int y, int width, int height) {
+
+	int src_x = x - BOARD_SIZE;
+	int src_y = y;
+
+	if (src_x < 0) {
+		width += src_x;
+		x -= src_x;
+		src_x = 0;
+	}
+	if (src_y < 0) {
+		height += src_y;
+		y -= src_y;
+		src_y = 0;
+	}
+	if (src_x + width > INFO_SIZE) {
+		width = INFO_SIZE - src_x;
+	}
+	if (src_y + height > BOARD_SIZE) {
+		height = BOARD_SIZE - src_y;
+	}
+
+	if (width > 0 && height > 0) {
+		putimage(x, y, width, height, &img_info_background, src_x, src_y);
+	}
 }
 
 bool Is_InCirecle(int px, int py, int cx, int cy, int radius) {
@@ -308,122 +369,472 @@ bool Is_InRect(int px, int py, int left, int top, int right, int bottom) {
 	}
 }
 
-//2、主界面与功能函数
-void Draw_Main() {
 
-	double text_all_x = (BOARD_SIZE + INFO_SIZE - 4 * (textheight(_T("字")))) / 2;
-	double text_local_y = button_singleplayer_y + (button_height - textheight(_T("字"))) / 2;
-	double text_multi_y = text_local_y + button_height + ELEMENT_GAP;
-	double text_instruction_y = text_multi_y + button_height + ELEMENT_GAP;
-	double text_mainsetting_y = text_instruction_y + button_height + ELEMENT_GAP;
-	double text_mainexit_y = text_mainsetting_y + button_height + ELEMENT_GAP;
+void Draw_Back_Button(int button_state, IMAGE* background_img) {
+
+	//局部刷新返回按钮背景，源坐标与窗口坐标保持一致
+	int padding = 8;
+	int refresh_x = button_back_x - padding;
+	int refresh_y = button_back_y - padding;
+	int refresh_w = button_back_width + 2 * padding;
+	int refresh_h = button_back_height + 2 * padding;
+
+	if (refresh_x < 0) {
+		refresh_w += refresh_x;
+		refresh_x = 0;
+	}
+	if (refresh_y < 0) {
+		refresh_h += refresh_y;
+		refresh_y = 0;
+	}
+	if (refresh_x + refresh_w > BOARD_SIZE + INFO_SIZE) {
+		refresh_w = BOARD_SIZE + INFO_SIZE - refresh_x;
+	}
+	if (refresh_y + refresh_h > BOARD_SIZE) {
+		refresh_h = BOARD_SIZE - refresh_y;
+	}
+
+	if (refresh_w > 0 && refresh_h > 0 && background_img != NULL) {
+		putimage(refresh_x, refresh_y, refresh_w, refresh_h, background_img, refresh_x, refresh_y);
+	}
+
+	COLORREF fill_color = RGB(255, 255, 255);
+	COLORREF line_color = RGB(0, 0, 0);
+	int text_offset = 0;
+
+	if (button_state == BUTTON_STATE_HOVER) {
+		fill_color = RGB(235, 235, 235);
+		line_color = RGB(60, 60, 60);
+	}
+	else if (button_state == BUTTON_STATE_PRESSED) {
+		fill_color = RGB(210, 210, 210);
+		text_offset = 2;
+	}
 
 	setlinestyle(PS_SOLID, 2);
-	setlinecolor(RGB(0, 0, 0));
+	setlinecolor(line_color);
+	setfillcolor(fill_color);
+	fillroundrect(button_back_x, button_back_y, button_back_x + button_back_width, button_back_y + button_back_height, 16, 16);
+	roundrect(button_back_x, button_back_y, button_back_x + button_back_width, button_back_y + button_back_height, 16, 16);
 
 	settextcolor(RGB(0, 0, 0));
-	setbkmode(TRANSPARENT);												//文本背景透明
-	LOGFONT fontStyle;													//创建字体结构体
-	gettextstyle(&fontStyle);											//获取当前字体设置
-	fontStyle.lfQuality = ANTIALIASED_QUALITY;							//启用抗锯齿
-	fontStyle.lfWeight = 0;												//设置字体粗细
-	fontStyle.lfHeight = PIECE_SIZE / 2;								//设置字体高度
+	setbkmode(TRANSPARENT);
+	outtextxy(
+		button_back_x + (button_back_width - textwidth(_T("返回"))) / 2 + text_offset,
+		button_back_y + (button_back_height - textheight(_T("返回"))) / 2 + text_offset,
+		_T("返回")
+	);
+}
+
+int Back_Switch(ExMessage msg, IMAGE* background_img) {
+
+	int current_button = -1;
+	if (Is_InRect(msg.x, msg.y, button_back_x, button_back_y, button_back_x + button_back_width, button_back_y + button_back_height)) {
+		current_button = MAIN_BACK;
+	}
+
+	if (msg.message == WM_MOUSEMOVE) {
+		if (back_pressed_button != -1) {
+			if (back_hover_button != current_button) {
+				back_hover_button = current_button;
+				Draw_Back_Button(current_button == MAIN_BACK ? BUTTON_STATE_PRESSED : BUTTON_STATE_HOVER, background_img);
+				FlushBatchDraw();
+			}
+		}
+		else if (back_hover_button != current_button) {
+			back_hover_button = current_button;
+			Draw_Back_Button(current_button == MAIN_BACK ? BUTTON_STATE_HOVER : BUTTON_STATE_NORMAL, background_img);
+			FlushBatchDraw();
+		}
+	}
+	else if (msg.message == WM_LBUTTONDOWN) {
+		back_pressed_button = current_button;
+		if (back_pressed_button == MAIN_BACK) {
+			Draw_Back_Button(BUTTON_STATE_PRESSED, background_img);
+			FlushBatchDraw();
+		}
+	}
+	else if (msg.message == WM_LBUTTONUP) {
+		int pressed_button = back_pressed_button;
+		back_pressed_button = -1;
+
+		if (pressed_button == MAIN_BACK) {
+			Draw_Back_Button(current_button == MAIN_BACK ? BUTTON_STATE_HOVER : BUTTON_STATE_NORMAL, background_img);
+			FlushBatchDraw();
+		}
+
+		if (pressed_button == MAIN_BACK && current_button == MAIN_BACK) {
+			printf("返回上一级页面\n");
+			return MAIN_BACK;
+		}
+	}
+
+	return -1;
+}
+
+//2、主界面与功能函数
+void Draw_Menu_Button(int left, int top, const TCHAR* text, int button_state, IMAGE* background_img) {
+
+	//局部刷新按钮所在背景，源坐标与窗口坐标保持一致，避免重绘时背景错位
+	int padding = 8;
+	int refresh_x = left - padding;
+	int refresh_y = top - padding;
+	int refresh_w = button_width + 2 * padding;
+	int refresh_h = button_height + 2 * padding;
+
+	if (refresh_x < 0) {
+		refresh_w += refresh_x;
+		refresh_x = 0;
+	}
+	if (refresh_y < 0) {
+		refresh_h += refresh_y;
+		refresh_y = 0;
+	}
+	if (refresh_x + refresh_w > BOARD_SIZE + INFO_SIZE) {
+		refresh_w = BOARD_SIZE + INFO_SIZE - refresh_x;
+	}
+	if (refresh_y + refresh_h > BOARD_SIZE) {
+		refresh_h = BOARD_SIZE - refresh_y;
+	}
+
+	if (refresh_w > 0 && refresh_h > 0 && background_img != NULL) {
+		putimage(refresh_x, refresh_y, refresh_w, refresh_h, background_img, refresh_x, refresh_y);
+	}
+
+	COLORREF fill_color = RGB(255, 255, 255);
+	COLORREF line_color = RGB(0, 0, 0);
+	int text_offset = 0;
+
+	if (button_state == BUTTON_STATE_HOVER) {
+		fill_color = RGB(235, 235, 235);
+		line_color = RGB(60, 60, 60);
+	}
+	else if (button_state == BUTTON_STATE_PRESSED) {
+		fill_color = RGB(210, 210, 210);
+		line_color = RGB(0, 0, 0);
+		text_offset = 2;
+	}
+
+	setlinestyle(PS_SOLID, 2);
+	setlinecolor(line_color);
+	setfillcolor(fill_color);
+	fillroundrect(left, top, left + button_width, top + button_height, 20, 20);
+	roundrect(left, top, left + button_width, top + button_height, 20, 20);
+
+	settextcolor(RGB(0, 0, 0));
+	setbkmode(TRANSPARENT);
+	int text_x = left + (button_width - textwidth(text)) / 2 + text_offset;
+	int text_y = top + (button_height - textheight(text)) / 2 + text_offset;
+	outtextxy(text_x, text_y, text);
+}
+
+void Draw_Main_Button(int button_index, int button_state) {
+
+	switch (button_index) {
+	case NETWORK_MODE_LOCAL:
+		Draw_Menu_Button(button_mainall_x, button_singleplayer_y, _T("本地模式"), button_state, &img_menu_background);
+		break;
+	case NETWORK_MODE_MULTIPLAYER:
+		Draw_Menu_Button(button_mainall_x, button_multiplayer_y, _T("多人模式"), button_state, &img_menu_background);
+		break;
+	case MAIN_INSTRUCTION:
+		Draw_Menu_Button(button_mainall_x, button_instruction_y, _T("玩法介绍"), button_state, &img_menu_background);
+		break;
+	case MAIN_SETTING:
+		Draw_Menu_Button(button_mainall_x, button_mainsetting_y, _T("游戏设置"), button_state, &img_menu_background);
+		break;
+	case MAIN_EXIT:
+		Draw_Menu_Button(button_mainall_x, button_mainexit_y, _T("退出游戏"), button_state, &img_menu_background);
+		break;
+	}
+}
+
+int Main_Hit_Button(int x, int y) {
+
+	if (Is_InRect(x, y, button_mainall_x, button_singleplayer_y, button_mainall_x + button_width, button_singleplayer_y + button_height)) {
+		return NETWORK_MODE_LOCAL;
+	}
+	else if (Is_InRect(x, y, button_mainall_x, button_multiplayer_y, button_mainall_x + button_width, button_multiplayer_y + button_height)) {
+		return NETWORK_MODE_MULTIPLAYER;
+	}
+	else if (Is_InRect(x, y, button_mainall_x, button_instruction_y, button_mainall_x + button_width, button_instruction_y + button_height)) {
+		return MAIN_INSTRUCTION;
+	}
+	else if (Is_InRect(x, y, button_mainall_x, button_mainsetting_y, button_mainall_x + button_width, button_mainsetting_y + button_height)) {
+		return MAIN_SETTING;
+	}
+	else if (Is_InRect(x, y, button_mainall_x, button_mainexit_y, button_mainall_x + button_width, button_mainexit_y + button_height)) {
+		return MAIN_EXIT;
+	}
+	return -1;
+}
+
+void Draw_Main() {
+
+	settextcolor(RGB(0, 0, 0));
+	setbkmode(TRANSPARENT);
+	LOGFONT fontStyle;
+	gettextstyle(&fontStyle);
+	fontStyle.lfQuality = ANTIALIASED_QUALITY;
+	fontStyle.lfWeight = 0;
+	fontStyle.lfHeight = PIECE_SIZE / 2;
 	_tcscpy_s(fontStyle.lfFaceName, _T("Terminal"));
-	settextstyle(&fontStyle);											//应用新字体设置
+	settextstyle(&fontStyle);
 
 	setbkcolor(RGB(255, 255, 255));
-	cleardevice();																																	//清空画面
+	cleardevice();
 
 	setorigin(0, 0);
-	Put_Transparent_Image(headline_x, headline_y, &img_headline_opp, &img_headline);																//绘制标题
+	putimage(0, 0, &img_menu_background);
+	Put_Transparent_Image(headline_x, headline_y, &img_headline_opp, &img_headline);
 
-	roundrect(button_mainall_x, button_singleplayer_y, button_mainall_x + button_width, button_singleplayer_y + button_height, 20, 20);				//本地模式按钮
-	outtextxy(text_all_x, text_local_y, _T("本地模式"));
-	roundrect(button_mainall_x, button_multiplayer_y, button_mainall_x + button_width, button_multiplayer_y + button_height, 20, 20);				//多人模式按钮
-	outtextxy(text_all_x, text_multi_y, _T("多人模式"));
-	roundrect(button_mainall_x, button_instruction_y, button_mainall_x + button_width, button_instruction_y + button_height, 20, 20);				//玩法介绍按钮
-	outtextxy(text_all_x, text_instruction_y, _T("玩法介绍"));
-	roundrect(button_mainall_x, button_mainsetting_y, button_mainall_x + button_width, button_mainsetting_y + button_height, 20, 20);				//设置按钮
-	outtextxy(text_all_x, text_mainsetting_y, _T("游戏设置"));
-	roundrect(button_mainall_x, button_mainexit_y, button_mainall_x + button_width, button_mainexit_y + button_height, 20, 20);						//退出按钮
-	outtextxy(text_all_x, text_mainexit_y, _T("退出游戏"));
+	main_hover_button = -1;
+	main_pressed_button = -1;
+
+	Draw_Main_Button(NETWORK_MODE_LOCAL, BUTTON_STATE_NORMAL);
+	Draw_Main_Button(NETWORK_MODE_MULTIPLAYER, BUTTON_STATE_NORMAL);
+	Draw_Main_Button(MAIN_INSTRUCTION, BUTTON_STATE_NORMAL);
+	Draw_Main_Button(MAIN_SETTING, BUTTON_STATE_NORMAL);
+	Draw_Main_Button(MAIN_EXIT, BUTTON_STATE_NORMAL);
 }
 
 int Main_Switch(ExMessage msg) {
 
-	//主界面模式选择
-	if (Is_InRect(msg.x, msg.y, button_mainall_x, button_singleplayer_y, button_mainall_x + button_width, button_singleplayer_y + button_height) && msg.message == WM_LBUTTONDOWN) {
-		printf("本地模式\n");
-		return NETWORK_MODE_LOCAL;
+	int current_button = Main_Hit_Button(msg.x, msg.y);
+
+	if (msg.message == WM_MOUSEMOVE) {
+		if (main_pressed_button != -1) {
+			if (main_hover_button != current_button) {
+				int old_hover = main_hover_button;
+				main_hover_button = current_button;
+				if (old_hover != -1 && old_hover != main_pressed_button) {
+					Draw_Main_Button(old_hover, BUTTON_STATE_NORMAL);
+				}
+				Draw_Main_Button(main_pressed_button, current_button == main_pressed_button ? BUTTON_STATE_PRESSED : BUTTON_STATE_HOVER);
+				FlushBatchDraw();
+			}
+		}
+		else if (main_hover_button != current_button) {
+			int old_hover = main_hover_button;
+			main_hover_button = current_button;
+			if (old_hover != -1) {
+				Draw_Main_Button(old_hover, BUTTON_STATE_NORMAL);
+			}
+			if (main_hover_button != -1) {
+				Draw_Main_Button(main_hover_button, BUTTON_STATE_HOVER);
+			}
+			FlushBatchDraw();
+		}
 	}
-	else if (Is_InRect(msg.x, msg.y, button_mainall_x, button_multiplayer_y, button_mainall_x + button_width, button_multiplayer_y + button_height) && msg.message == WM_LBUTTONDOWN) {
-		printf("多人模式\n");
-		return NETWORK_MODE_MULTIPLAYER;
+	else if (msg.message == WM_LBUTTONDOWN) {
+		main_pressed_button = current_button;
+		if (main_pressed_button != -1) {
+			Draw_Main_Button(main_pressed_button, BUTTON_STATE_PRESSED);
+			FlushBatchDraw();
+		}
 	}
-	else if (Is_InRect(msg.x, msg.y, button_mainall_x, button_instruction_y, button_mainall_x + button_width, button_instruction_y + button_height) && msg.message == WM_LBUTTONDOWN) {
-		printf("游戏说明\n");
-		return MAIN_INSTRUCTION;
-	}
-	else if (Is_InRect(msg.x, msg.y, button_mainall_x, button_mainsetting_y, button_mainall_x + button_width, button_mainsetting_y + button_height) && msg.message == WM_LBUTTONDOWN) {
-		printf("游戏设置\n");
-		return MAIN_SETTING;
-	}
-	else if (Is_InRect(msg.x, msg.y, button_mainall_x, button_mainexit_y, button_mainall_x + button_width, button_mainexit_y + button_height) && msg.message == WM_LBUTTONDOWN) {
-		printf("退出游戏\n");
-		return MAIN_EXIT;
+	else if (msg.message == WM_LBUTTONUP) {
+		int pressed_button = main_pressed_button;
+		main_pressed_button = -1;
+
+		if (pressed_button != -1) {
+			Draw_Main_Button(pressed_button, current_button == pressed_button ? BUTTON_STATE_HOVER : BUTTON_STATE_NORMAL);
+			FlushBatchDraw();
+		}
+
+		if (pressed_button == current_button && current_button != -1) {
+			if (current_button == NETWORK_MODE_LOCAL) printf("本地模式\n");
+			else if (current_button == NETWORK_MODE_MULTIPLAYER) printf("多人模式\n");
+			else if (current_button == MAIN_INSTRUCTION) printf("游戏说明\n");
+			else if (current_button == MAIN_SETTING) printf("游戏设置\n");
+			else if (current_button == MAIN_EXIT) printf("退出游戏\n");
+			return current_button;
+		}
 	}
 
-	return -1;	//空值返回码
+	return -1;
+}
+
+
+void Draw_Text_Page(const TCHAR* title, const TCHAR* content) {
+
+	settextcolor(RGB(0, 0, 0));
+	setbkmode(TRANSPARENT);
+	LOGFONT fontStyle;
+	gettextstyle(&fontStyle);
+	fontStyle.lfQuality = ANTIALIASED_QUALITY;
+	fontStyle.lfWeight = FONT_WEIGHT;
+	fontStyle.lfHeight = PIECE_SIZE;
+	_tcscpy_s(fontStyle.lfFaceName, _T("微软雅黑"));
+	settextstyle(&fontStyle);
+
+	setbkcolor(RGB(255, 255, 255));
+	cleardevice();
+	setorigin(0, 0);
+	putimage(0, 0, &img_universal_background);
+
+	int title_x = (BOARD_SIZE + INFO_SIZE - textwidth(title)) / 2;
+	int title_y = headline_y;
+	outtextxy(title_x, title_y, title);
+
+	fontStyle.lfWeight = 0;
+	fontStyle.lfHeight = PIECE_SIZE / 2;
+	settextstyle(&fontStyle);
+
+	int content_x = (BOARD_SIZE + INFO_SIZE - button_width) / 2;
+	int content_y = title_y + PIECE_SIZE + 4 * ELEMENT_GAP;
+	outtextxy(content_x, content_y, content);
+
+	back_hover_button = -1;
+	back_pressed_button = -1;
+	Draw_Back_Button(BUTTON_STATE_NORMAL, &img_universal_background);
+}
+
+void Draw_Instruction() {
+
+	Draw_Text_Page(
+		_T("玩法介绍"),
+		_T("双击棋盘交叉点落子，先连成五子的一方获胜。游戏中可使用右下方按钮返回主菜单。")
+	);
+}
+
+void Draw_Setting() {
+
+	Draw_Text_Page(
+		_T("游戏设置"),
+		_T("当前设置页保留音乐开关等后续配置入口。按返回回到主菜单。")
+	);
+}
+
+void Draw_Message_Page(const TCHAR* message) {
+
+	settextcolor(RGB(0, 0, 0));
+	setbkmode(TRANSPARENT);
+	LOGFONT fontStyle;
+	gettextstyle(&fontStyle);
+	fontStyle.lfQuality = ANTIALIASED_QUALITY;
+	fontStyle.lfWeight = 0;
+	fontStyle.lfHeight = PIECE_SIZE / 2;
+	_tcscpy_s(fontStyle.lfFaceName, _T("微软雅黑"));
+	settextstyle(&fontStyle);
+
+	cleardevice();
+	setorigin(0, 0);
+	putimage(0, 0, &img_universal_background);
+	outtextxy((BOARD_SIZE + INFO_SIZE - textwidth(message)) / 2, (BOARD_SIZE - textheight(message)) / 2, message);
+	FlushBatchDraw();
 }
 
 //3、多人界面与功能函数
+void Draw_Multi_Button(int button_index, int button_state) {
+
+	if (button_index == NETWORK_MODE_SERVER) {
+		Draw_Menu_Button(button_multiall_x, button_createserver_y, _T("创建服务器"), button_state, &img_universal_background);
+	}
+	else if (button_index == NETWORK_MODE_CLIENT) {
+		Draw_Menu_Button(button_multiall_x, button_joinserver_y, _T("加入服务器"), button_state, &img_universal_background);
+	}
+}
+
+int Multi_Hit_Button(int x, int y) {
+
+	if (Is_InRect(x, y, button_multiall_x, button_createserver_y, button_multiall_x + button_width, button_createserver_y + button_height)) {
+		return NETWORK_MODE_SERVER;
+	}
+	else if (Is_InRect(x, y, button_multiall_x, button_joinserver_y, button_multiall_x + button_width, button_joinserver_y + button_height)) {
+		return NETWORK_MODE_CLIENT;
+	}
+	return -1;
+}
+
 void Draw_Multi() {
 
-	double text_all_x = (BOARD_SIZE + INFO_SIZE - 5 * (textheight(_T("字")))) / 2;
-	double text_createserver_y = button_createserver_y + (button_height - textheight(_T("字"))) / 2;
-	double text_joinserver_y = button_joinserver_y + (button_height - textheight(_T("字"))) / 2;
-
-	setlinestyle(PS_SOLID, 2);
-	setlinecolor(RGB(0, 0, 0));
-
 	settextcolor(RGB(0, 0, 0));
-	setbkmode(TRANSPARENT);												//文本背景透明
-	LOGFONT fontStyle;													//创建字体结构体
-	gettextstyle(&fontStyle);											//获取当前字体设置
-	fontStyle.lfQuality = ANTIALIASED_QUALITY;							//启用抗锯齿
-	fontStyle.lfWeight = 0;												//设置字体粗细
-	fontStyle.lfHeight = PIECE_SIZE / 2;								//设置字体高度
+	setbkmode(TRANSPARENT);
+	LOGFONT fontStyle;
+	gettextstyle(&fontStyle);
+	fontStyle.lfQuality = ANTIALIASED_QUALITY;
+	fontStyle.lfWeight = 0;
+	fontStyle.lfHeight = PIECE_SIZE / 2;
 	_tcscpy_s(fontStyle.lfFaceName, _T("Terminal"));
-	settextstyle(&fontStyle);											//应用新字体设置
+	settextstyle(&fontStyle);
 
 	setbkcolor(RGB(255, 255, 255));
-	cleardevice();	//清空画面
-
+	cleardevice();
 	setorigin(0, 0);
+	putimage(0, 0, &img_universal_background);
 
-	roundrect(button_multiall_x, button_createserver_y, button_multiall_x + button_width, button_createserver_y + button_height, 20, 20);				//创建服务器按钮
-	outtextxy(text_all_x, text_createserver_y, _T("创建服务器"));
-	roundrect(button_multiall_x, button_joinserver_y, button_multiall_x + button_width, button_joinserver_y + button_height, 20, 20);					//加入服务器按钮
-	outtextxy(text_all_x, text_joinserver_y, _T("加入服务器"));
+	multi_hover_button = -1;
+	multi_pressed_button = -1;
 
+	back_hover_button = -1;
+	back_pressed_button = -1;
+
+	Draw_Back_Button(BUTTON_STATE_NORMAL, &img_universal_background);
+	Draw_Multi_Button(NETWORK_MODE_SERVER, BUTTON_STATE_NORMAL);
+	Draw_Multi_Button(NETWORK_MODE_CLIENT, BUTTON_STATE_NORMAL);
 }
 
 int Multi_Switch(ExMessage msg) {
 
-	//多人界面模式选择
-	if (Is_InRect(msg.x, msg.y, button_multiall_x, button_createserver_y, button_multiall_x + button_width, button_createserver_y + button_height) && msg.message == WM_LBUTTONDOWN) {
-		printf("创建服务器\n");
-		return NETWORK_MODE_SERVER;
-	}
-	else if (Is_InRect(msg.x, msg.y, button_multiall_x, button_joinserver_y, button_multiall_x + button_width, button_joinserver_y + button_height) && msg.message == WM_LBUTTONDOWN) {
-		printf("加入服务器\n");
-		return NETWORK_MODE_CLIENT;
+	int back_result = Back_Switch(msg, &img_universal_background);
+	if (back_result == MAIN_BACK) {
+		return MAIN_BACK;
 	}
 
-	return -1;	//空值返回码
+	int current_button = Multi_Hit_Button(msg.x, msg.y);
+
+	if (msg.message == WM_MOUSEMOVE) {
+		if (multi_pressed_button != -1) {
+			if (multi_hover_button != current_button) {
+				int old_hover = multi_hover_button;
+				multi_hover_button = current_button;
+				if (old_hover != -1 && old_hover != multi_pressed_button) {
+					Draw_Multi_Button(old_hover, BUTTON_STATE_NORMAL);
+				}
+				Draw_Multi_Button(multi_pressed_button, current_button == multi_pressed_button ? BUTTON_STATE_PRESSED : BUTTON_STATE_HOVER);
+				FlushBatchDraw();
+			}
+		}
+		else if (multi_hover_button != current_button) {
+			int old_hover = multi_hover_button;
+			multi_hover_button = current_button;
+			if (old_hover != -1) {
+				Draw_Multi_Button(old_hover, BUTTON_STATE_NORMAL);
+			}
+			if (multi_hover_button != -1) {
+				Draw_Multi_Button(multi_hover_button, BUTTON_STATE_HOVER);
+			}
+			FlushBatchDraw();
+		}
+	}
+	else if (msg.message == WM_LBUTTONDOWN) {
+		multi_pressed_button = current_button;
+		if (multi_pressed_button != -1) {
+			Draw_Multi_Button(multi_pressed_button, BUTTON_STATE_PRESSED);
+			FlushBatchDraw();
+		}
+	}
+	else if (msg.message == WM_LBUTTONUP) {
+		int pressed_button = multi_pressed_button;
+		multi_pressed_button = -1;
+
+		if (pressed_button != -1) {
+			Draw_Multi_Button(pressed_button, current_button == pressed_button ? BUTTON_STATE_HOVER : BUTTON_STATE_NORMAL);
+			FlushBatchDraw();
+		}
+
+		if (pressed_button == current_button && current_button != -1) {
+			if (current_button == NETWORK_MODE_SERVER) printf("创建服务器\n");
+			else if (current_button == NETWORK_MODE_CLIENT) printf("加入服务器\n");
+			return current_button;
+		}
+	}
+
+	return -1;
 }
 
-void Input_Box() {
+bool Input_Box() {
 
 	int index = 0;
 	double inputBoxLeft = (BOARD_SIZE + INFO_SIZE - button_width) / 2, inputBoxTop = BOARD_SIZE / 2 - 8 * ELEMENT_GAP;
@@ -446,6 +857,7 @@ void Input_Box() {
 
 	setbkcolor(RGB(255, 255, 255));
 	cleardevice();	//清空画面
+	setorigin(0, 0);
 
 	while (true) {
 
@@ -453,7 +865,11 @@ void Input_Box() {
 
 			wchar_t ch = _getwch();											//输入宽字符
 			if (ch == _T('\r')) {											//检测到换行符结束输入
-				break;
+				return true;
+			}
+			else if (ch == 27) {												//ESC返回上一级页面
+				inputStr[0] = _T('\0');
+				return false;
 			}
 			else if (ch == _T('\b') && index > 0) {							//检测到退格符删除字符
 				inputStr[--index] = _T('\0');
@@ -465,6 +881,7 @@ void Input_Box() {
 		}
 
 		cleardevice();														//删除前一帧
+		putimage(0, 0, &img_universal_background);
 		rectangle(inputBoxLeft, inputBoxTop, inputBoxRight, inputBoxBottom);
 
 		int textY = inputBoxTop + textheight(_T("A")) / 2;
@@ -475,6 +892,7 @@ void Input_Box() {
 		//Sleep(10);
 	}
 
+	return true;
 }
 
 //4、游戏界面与功能函数
@@ -521,21 +939,7 @@ void Draw_Info() {
 	settextcolor(RGB(255, 255, 255));
 
 	//2、游戏功能区元素
-	double font_offset = PIECE_SIZE / 5;
-	solidcircle(button_restart_x, button_playingall_y, BUTTON_SIZE / 2);		//重启按钮
-	outtextxy(button_restart_x - font_offset, button_playingall_y - font_offset, _T("重"));
-
-	solidcircle(button_takeback_x, button_playingall_y, BUTTON_SIZE / 2);		//悔棋按钮
-	outtextxy(button_takeback_x - font_offset, button_playingall_y - font_offset, _T("悔"));
-
-	solidcircle(button_exit_x, button_playingall_y, BUTTON_SIZE / 2);			//退出按钮
-	outtextxy(button_exit_x - font_offset, button_playingall_y - font_offset, _T("退"));
-
-	solidcircle(button_setting_x, button_playingall_y, BUTTON_SIZE / 2);		//设置按钮
-	outtextxy(button_setting_x - font_offset, button_playingall_y - font_offset, _T("设"));
-
-	solidcircle(button_music_x, button_playingall_y, BUTTON_SIZE / 2);			//音乐按钮
-	outtextxy(button_music_x - font_offset, button_playingall_y - font_offset, _T("音"));
+	Draw_All_Game_Buttons(BUTTON_STATE_NORMAL);
 
 	//3、游戏联机区元素
 
@@ -587,6 +991,159 @@ void Draw_Info() {
 	roundrect(chat_board_left, chat_board_top, chat_board_right, chat_board_bottom, 10, 10);
 
 	setorigin(BOARD_ORIGIN_X, BOARD_ORIGIN_Y);	//恢复坐标原点
+}
+
+void Draw_Game_Button(int button_index, int button_state) {
+
+	int center_x = 0;
+	const TCHAR* button_text = _T("");
+
+	switch (button_index) {
+	case GAME_BUTTON_RESTART:
+		center_x = button_restart_x;
+		button_text = _T("重");
+		break;
+	case GAME_BUTTON_TAKEBACK:
+		center_x = button_takeback_x;
+		button_text = _T("悔");
+		break;
+	case GAME_BUTTON_MUSIC:
+		center_x = button_music_x;
+		button_text = music_flag == 1 ? _T("音") : _T("静");
+		break;
+	case GAME_BUTTON_SETTING:
+		center_x = button_setting_x;
+		button_text = _T("设");
+		break;
+	case GAME_BUTTON_EXIT:
+		center_x = button_exit_x;
+		button_text = _T("退");
+		break;
+	default:
+		return;
+	}
+
+	int left = center_x - BUTTON_SIZE / 2;
+	int top = button_playingall_y - BUTTON_SIZE / 2;
+	int padding = 5;
+	Clear_Info_Background(left - padding, top - padding, BUTTON_SIZE + 2 * padding, BUTTON_SIZE + 2 * padding);
+
+	COLORREF fill_color = RGB(255, 255, 255);
+	COLORREF line_color = RGB(0, 0, 0);
+	int text_offset = 0;
+
+	if (button_state == BUTTON_STATE_HOVER) {
+		fill_color = RGB(235, 235, 235);
+		line_color = RGB(60, 60, 60);
+	}
+	else if (button_state == BUTTON_STATE_PRESSED) {
+		fill_color = RGB(210, 210, 210);
+		line_color = RGB(0, 0, 0);
+		text_offset = 2;
+	}
+
+	setorigin(0, 0);
+	setlinestyle(PS_SOLID, 2);
+	setlinecolor(line_color);
+	setfillcolor(fill_color);
+	fillroundrect(left, top, left + BUTTON_SIZE, top + BUTTON_SIZE, 14, 14);
+	roundrect(left, top, left + BUTTON_SIZE, top + BUTTON_SIZE, 14, 14);
+
+	LOGFONT font_style;
+	gettextstyle(&font_style);
+	font_style.lfQuality = ANTIALIASED_QUALITY;
+	font_style.lfWeight = FONT_WEIGHT;
+	font_style.lfHeight = PIECE_SIZE / 2;
+	_tcscpy_s(font_style.lfFaceName, _T("微软雅黑"));
+	settextstyle(&font_style);
+	settextcolor(RGB(0, 0, 0));
+	setbkmode(TRANSPARENT);
+	outtextxy(
+		left + (BUTTON_SIZE - textwidth(button_text)) / 2 + text_offset,
+		top + (BUTTON_SIZE - textheight(button_text)) / 2 + text_offset,
+		button_text
+	);
+}
+
+void Draw_All_Game_Buttons(int button_state) {
+
+	Draw_Game_Button(GAME_BUTTON_RESTART, button_state);
+	Draw_Game_Button(GAME_BUTTON_TAKEBACK, button_state);
+	Draw_Game_Button(GAME_BUTTON_MUSIC, button_state);
+	Draw_Game_Button(GAME_BUTTON_SETTING, button_state);
+	Draw_Game_Button(GAME_BUTTON_EXIT, button_state);
+}
+
+int Game_Hit_Button(int x, int y) {
+
+	int top = button_playingall_y - BUTTON_SIZE / 2;
+	int bottom = button_playingall_y + BUTTON_SIZE / 2;
+
+	if (Is_InRect(x, y, button_restart_x - BUTTON_SIZE / 2, top, button_restart_x + BUTTON_SIZE / 2, bottom)) {
+		return GAME_BUTTON_RESTART;
+	}
+	else if (Is_InRect(x, y, button_takeback_x - BUTTON_SIZE / 2, top, button_takeback_x + BUTTON_SIZE / 2, bottom)) {
+		return GAME_BUTTON_TAKEBACK;
+	}
+	else if (Is_InRect(x, y, button_music_x - BUTTON_SIZE / 2, top, button_music_x + BUTTON_SIZE / 2, bottom)) {
+		return GAME_BUTTON_MUSIC;
+	}
+	else if (Is_InRect(x, y, button_setting_x - BUTTON_SIZE / 2, top, button_setting_x + BUTTON_SIZE / 2, bottom)) {
+		return GAME_BUTTON_SETTING;
+	}
+	else if (Is_InRect(x, y, button_exit_x - BUTTON_SIZE / 2, top, button_exit_x + BUTTON_SIZE / 2, bottom)) {
+		return GAME_BUTTON_EXIT;
+	}
+	return -1;
+}
+
+int Game_Button_Switch(ExMessage msg) {
+
+	int current_button = Game_Hit_Button(msg.x, msg.y);
+
+	if (msg.message == WM_MOUSEMOVE) {
+		if (game_pressed_button != -1) {
+			if (game_hover_button != current_button) {
+				game_hover_button = current_button;
+				Draw_Game_Button(game_pressed_button, current_button == game_pressed_button ? BUTTON_STATE_PRESSED : BUTTON_STATE_NORMAL);
+				FlushBatchDraw();
+			}
+		}
+		else if (game_hover_button != current_button) {
+			int old_hover = game_hover_button;
+			game_hover_button = current_button;
+
+			if (old_hover != -1) {
+				Draw_Game_Button(old_hover, BUTTON_STATE_NORMAL);
+			}
+			if (game_hover_button != -1) {
+				Draw_Game_Button(game_hover_button, BUTTON_STATE_HOVER);
+			}
+			FlushBatchDraw();
+		}
+	}
+	else if (msg.message == WM_LBUTTONDOWN) {
+		game_pressed_button = current_button;
+		if (game_pressed_button != -1) {
+			Draw_Game_Button(game_pressed_button, BUTTON_STATE_PRESSED);
+			FlushBatchDraw();
+		}
+	}
+	else if (msg.message == WM_LBUTTONUP) {
+		int pressed_button = game_pressed_button;
+		game_pressed_button = -1;
+
+		if (pressed_button != -1) {
+			Draw_Game_Button(pressed_button, current_button == pressed_button ? BUTTON_STATE_HOVER : BUTTON_STATE_NORMAL);
+			FlushBatchDraw();
+		}
+
+		if (pressed_button != -1 && pressed_button == current_button) {
+			return pressed_button;
+		}
+	}
+
+	return -1;
 }
 
 void Draw_Highlight(int x, int y, int Board[LINE_NUM][LINE_NUM]) {
@@ -747,9 +1304,9 @@ void Turn_Timer_Start() {
 	//4、绘制清空后的时间
 	COLORREF timer_color = BLACK;
 
-	putimage(timer_black_x, timer_black_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空黑方回合计时区
+	Clear_Info_Background((int)timer_black_x, (int)timer_black_y, (int)round_time_sizex, (int)round_time_sizey);	//清空黑方回合计时区
 	outtextxy(timer_black_x, timer_black_y, _T("回合剩余：30秒"));	//绘制黑棋重置倒计时文字
-	putimage(timer_white_x, timer_white_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空白方回合计时区
+	Clear_Info_Background((int)timer_white_x, (int)timer_white_y, (int)round_time_sizex, (int)round_time_sizey);	//清空白方回合计时区
 	outtextxy(timer_white_x, timer_white_y, _T("回合剩余：30秒"));	//绘制白棋重置倒计时文字
 }
 
@@ -892,8 +1449,8 @@ void Turn_Draw_Timer(int player) {
 	roundrect(white_timearea_left, white_timearea_top, white_timearea_right, white_timearea_bottom, 15, 15);
 
 	//总剩余时间绘制
-	putimage(timer_black_total_x, timer_black_total_y, total_time_sizex, total_time_sizey, &img_info_background, total_time_sizex, total_time_sizey);
-	putimage(timer_white_total_x, timer_white_total_y, total_time_sizex, total_time_sizey, &img_info_background, total_time_sizex, total_time_sizey);
+	Clear_Info_Background((int)timer_black_total_x, (int)timer_black_total_y, (int)total_time_sizex, (int)total_time_sizey);
+	Clear_Info_Background((int)timer_white_total_x, (int)timer_white_total_y, (int)total_time_sizex, (int)total_time_sizey);
 
 	settextcolor(BLACK);
 	outtextxy(timer_black_total_x, timer_black_total_y, black_time_total_text);
@@ -905,10 +1462,10 @@ void Turn_Draw_Timer(int player) {
 		setlinecolor(RED);
 		roundrect(black_timearea_left, black_timearea_top, black_timearea_right, black_timearea_bottom, 15, 15);
 
-		putimage(timer_black_x, timer_black_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空黑方回合计时区
+		Clear_Info_Background((int)timer_black_x, (int)timer_black_y, (int)round_time_sizex, (int)round_time_sizey);	//清空黑方回合计时区
 		outtextxy(timer_black_x, timer_black_y, time_text_round);	//绘制黑棋倒计时文字
 		settextcolor(BLACK);	//保证静止区域为黑色
-		putimage(timer_white_x, timer_white_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空白方回合计时区
+		Clear_Info_Background((int)timer_white_x, (int)timer_white_y, (int)round_time_sizex, (int)round_time_sizey);	//清空白方回合计时区
 		outtextxy(timer_white_x, timer_white_y, _T("回合剩余：30秒"));	//绘制白棋倒计时文字
 	}
 	else if (player == WHITE) {
@@ -916,10 +1473,10 @@ void Turn_Draw_Timer(int player) {
 		setlinecolor(RED);
 		roundrect(white_timearea_left, white_timearea_top, white_timearea_right, white_timearea_bottom, 15, 15);
 
-		putimage(timer_white_x, timer_white_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空白方回合计时区
+		Clear_Info_Background((int)timer_white_x, (int)timer_white_y, (int)round_time_sizex, (int)round_time_sizey);	//清空白方回合计时区
 		outtextxy(timer_white_x, timer_white_y, time_text_round);	//绘制白棋倒计时文字
 		settextcolor(BLACK);	//保证静止区域为黑色
-		putimage(timer_black_x, timer_black_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空黑方回合计时区
+		Clear_Info_Background((int)timer_black_x, (int)timer_black_y, (int)round_time_sizex, (int)round_time_sizey);	//清空黑方回合计时区
 		outtextxy(timer_black_x, timer_black_y, _T("回合剩余：30秒"));	//绘制黑棋倒计时文字
 	}
 
@@ -928,17 +1485,17 @@ void Turn_Draw_Timer(int player) {
 	if (turn_remain_time <= 5 && turn_remain_time > 0) {
 		flash_count++;
 		if (flash_count % FLASH_CYCLE < FLASH_CYCLE / 2) {
-			if (player == BLACK)	putimage(timer_black_x, timer_black_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空黑方回合计时区
-			else if (player == WHITE)	putimage(timer_white_x, timer_white_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空白方回合计时区
+			if (player == BLACK)	Clear_Info_Background((int)timer_black_x, (int)timer_black_y, (int)round_time_sizex, (int)round_time_sizey);	//清空黑方回合计时区
+			else if (player == WHITE)	Clear_Info_Background((int)timer_white_x, (int)timer_white_y, (int)round_time_sizex, (int)round_time_sizey);	//清空白方回合计时区
 		}
 		else {
 			settextcolor(RED);
 			if (player == BLACK) {
-				putimage(timer_black_x, timer_black_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空黑方回合计时区
+				Clear_Info_Background((int)timer_black_x, (int)timer_black_y, (int)round_time_sizex, (int)round_time_sizey);	//清空黑方回合计时区
 				outtextxy(timer_black_x, timer_black_y, time_text_round);	//绘制黑棋倒计时文字
 			}
 			else if (player == WHITE) {
-				putimage(timer_white_x, timer_white_y, round_time_sizex, round_time_sizey, &img_info_background, round_time_sizex, round_time_sizey);	//清空白方回合计时区
+				Clear_Info_Background((int)timer_white_x, (int)timer_white_y, (int)round_time_sizex, (int)round_time_sizey);	//清空白方回合计时区
 				outtextxy(timer_white_x, timer_white_y, time_text_round);	//绘制白棋倒计时文字
 			}
 		}
@@ -1058,25 +1615,20 @@ int Judge_Win_Timer(int player) {
 
 bool Switch_To_Setting(ExMessage msg) {
 
-	if (Is_InCirecle(msg.x, msg.y, button_setting_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE / 2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN) {
+	if (msg.message == WM_LBUTTONUP && Game_Hit_Button(msg.x, msg.y) == GAME_BUTTON_SETTING) {
 		printf("跳转到设置面\n");
-		return true;	//点击了设置按钮
+		return true;
 	}
-	else {
-		return false;
-	}
-
+	return false;
 }
 
 bool Switch_To_Menu(ExMessage msg) {
 
-	if (Is_InCirecle(msg.x, msg.y, button_exit_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE / 2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN) {
+	if (msg.message == WM_LBUTTONUP && Game_Hit_Button(msg.x, msg.y) == GAME_BUTTON_EXIT) {
 		printf("跳转到主页面\n");
-		return true;	//点击了退出按钮
+		return true;
 	}
-	else {
-		return false;
-	}
+	return false;
 }
 
 //5、游戏玩法函数
@@ -1123,7 +1675,8 @@ void Restart_Game(int Board[LINE_NUM][LINE_NUM], int* player) {
 	putimage(0, 0, &img_game_background);
 	Draw_Board();
 	Draw_Info();
-
+	game_hover_button = -1;
+	game_pressed_button = -1;
 
 	FlushBatchDraw();
 }
@@ -1240,7 +1793,7 @@ bool Connect_Server(const char* ip, int port) {
 	ServerAddr.sin_addr.s_addr = inet_addr(ip);	//连接特定IP
 	if (ServerAddr.sin_addr.s_addr == INADDR_NONE) {
 		struct hostent* remoteHost = gethostbyname(ip);
-		if (remoteHost = NULL) {
+		if (remoteHost == NULL) {
 			printf("域名解析失败:%d\n", WSAGetLastError());
 			closesocket(ClientSocket);
 			return false;
@@ -1383,7 +1936,7 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
 		}
 		break;
 		}
-		}
+	}
 
 	//恢复为阻塞状态
 	mode = 0;	//0为阻塞
@@ -1419,11 +1972,11 @@ int main() {
 
 			//选择游戏模式
 			ExMessage msg;
-			while (peekmessage(&msg, EX_MOUSE, false)) {
+			while (currentState == MENU) {
 				getmessage(&msg, EX_MOUSE);
 
 				game_mode = Main_Switch(msg);
-				if (game_mode == -1) break;
+				if (game_mode == -1) continue;
 				if (game_mode == NETWORK_MODE_LOCAL) {
 
 					NetworkMode = NETWORK_MODE_LOCAL;
@@ -1457,12 +2010,22 @@ int main() {
 		case INSTRUCTION:
 		{
 			//INSTRUCTION绘制与功能函数
-			flushmessage();          // 清空所有待处理消息
+			flushmessage();															//清空所有待处理消息
+			Draw_Instruction();
+			FlushBatchDraw();
 
-			setbkcolor(RGB(255, 255, 255));
-			cleardevice();	//清空画面
-
-			FlushBatchDraw();	//刷新显示
+			ExMessage msg;
+			while (currentState == INSTRUCTION) {
+				getmessage(&msg, EX_MOUSE | EX_KEY);
+				if (msg.message == WM_KEYDOWN && msg.vkcode == VK_ESCAPE) {
+					currentState = MENU;
+					break;
+				}
+				if (Back_Switch(msg, &img_universal_background) == MAIN_BACK) {
+					currentState = MENU;
+					break;
+				}
+			}
 
 			break;
 		}
@@ -1477,7 +2040,7 @@ int main() {
 
 			//逻辑显示
 			ExMessage msg;
-			while (peekmessage(&msg, EX_MOUSE, false)) {
+			while (currentState == MULTIPLAYER) {
 
 				getmessage(&msg, EX_MOUSE);
 				int multi_mode = Multi_Switch(msg);
@@ -1488,6 +2051,10 @@ int main() {
 				}
 				else if (multi_mode == NETWORK_MODE_CLIENT) {
 					currentState = MULTIPLAYER_CLIENT;
+					break;
+				}
+				else if (multi_mode == MAIN_BACK) {
+					currentState = MENU;
 					break;
 				}
 			}
@@ -1505,12 +2072,7 @@ int main() {
 				printf_s("服务器创建成功，等待客户端连接\n");
 
 				//绘制成功创建服务器提示画面
-				cleardevice();
-
-				settextcolor(RGB(0, 0, 0));
-				outtextxy((BOARD_SIZE + INFO_SIZE - 15 * textheight(_T("字"))) / 2, (BOARD_SIZE - textheight(_T("字"))) / 2, _T("服务器创建成功，等待连接..."));
-
-				FlushBatchDraw();	//刷新显示
+				Draw_Message_Page(_T("服务器创建成功，等待连接..."));
 
 
 				if (Accept_Connection()) {
@@ -1518,9 +2080,8 @@ int main() {
 					isConnected = true;				//成功连接
 					printf_s("客户端已连接\n");
 
-					cleardevice();
 					//绘制连接成功提示画面
-					FlushBatchDraw();	//刷新显示
+					Draw_Message_Page(_T("客户端已连接，即将开始游戏"));
 
 					Sleep(1500);
 					currentState = PLAYING;			//连接成功开始游戏
@@ -1530,9 +2091,8 @@ int main() {
 			else {
 				printf_s("服务器创建失败\n");
 
-				cleardevice();
 				//绘制创建失败提示
-				FlushBatchDraw();
+				Draw_Message_Page(_T("服务器创建失败，返回多人页面"));
 				Sleep(1500);
 				currentState = MULTIPLAYER;			//创建失败跳回多人页面
 			}
@@ -1545,7 +2105,10 @@ int main() {
 			//MULTIPLAYER_CLIENT绘制与功能函数
 			flushmessage();          // 清空所有待处理消息
 			//绘制输入服务器IP
-			Input_Box();			//等待输入
+			if (!Input_Box()) {													//ESC取消输入并返回多人页面
+				currentState = MULTIPLAYER;
+				break;
+			}
 
 			NetworkMode = NETWORK_MODE_CLIENT;
 			printf_s("输入的服务器IP地址：%ls\n", inputStr);
@@ -1558,10 +2121,8 @@ int main() {
 			int port;
 			if (!Parse_IPPort(ipBuffer, ip, sizeof(ip), port)) {
 				printf_s("输入的地址格式错误\n");
-				// 显示错误信息（可以绘制提示）
-				cleardevice();
-				outtextxy(100, 100, _T("地址格式错误"));
-				FlushBatchDraw();
+				//显示错误信息
+				Draw_Message_Page(_T("地址格式错误，返回多人页面"));
 				currentState = MULTIPLAYER;
 				break;
 			}
@@ -1571,9 +2132,8 @@ int main() {
 				isConnected = true;				//成功连接
 				printf_s("连接到服务器\n");
 
-				cleardevice();
 				//绘制成功连接页面
-				FlushBatchDraw();
+				Draw_Message_Page(_T("连接成功，即将开始游戏"));
 
 				Sleep(1500);
 				currentState = PLAYING;
@@ -1581,10 +2141,8 @@ int main() {
 			else {
 				printf_s("服务器连接失败\n");
 
-				cleardevice();
 				//绘制连接失败提示
-				outtextxy(100, 100, _T("服务器连接失败"));
-				FlushBatchDraw();
+				Draw_Message_Page(_T("服务器连接失败，返回多人页面"));
 				Sleep(1500);
 				currentState = MULTIPLAYER;
 			}
@@ -1635,23 +2193,33 @@ int main() {
 				ExMessage msg;
 				if (peekmessage(&msg, EX_MOUSE, false)) {
 
-					getmessage(&msg, EX_MOUSE);																		//获取鼠标信息
-					Game_Music_Control(msg);																		//音乐开关按键
+					getmessage(&msg, EX_MOUSE);																//获取鼠标信息
 
-					if (Switch_To_Setting(msg)) {																	//跳转设置页面
-						currentState = SETTING;
-						break;
-					}
-					if (Switch_To_Menu(msg)) {
-						currentState = MENU;																		//跳转至主页面
-						Restart_Game(board, &player);
-						break;
-					}
-
-					if (Is_InCirecle(msg.x, msg.y, button_restart_x, BOARD_SIZE - BUTTON_POS - BUTTON_SIZE / 2, BUTTON_SIZE / 2) && msg.message == WM_LBUTTONDOWN) {
+					int game_button_result = Game_Button_Switch(msg);
+					if (game_button_result == GAME_BUTTON_RESTART) {
 						printf("重启游戏\n");
 						Restart_Game(board, &player);																//重启游戏
 						continue;
+					}
+					else if (game_button_result == GAME_BUTTON_TAKEBACK) {
+						printf("悔棋\n");
+						Take_Back_Move();
+						continue;
+					}
+					else if (game_button_result == GAME_BUTTON_MUSIC) {
+						Game_Music_Control(msg);															//音乐开关按键
+						continue;
+					}
+					else if (game_button_result == GAME_BUTTON_SETTING) {
+						printf("跳转到设置面\n");
+						currentState = SETTING;
+						break;
+					}
+					else if (game_button_result == GAME_BUTTON_EXIT) {
+						printf("跳转到主页面\n");
+						currentState = MENU;																//跳转至主页面
+						Restart_Game(board, &player);
+						break;
 					}
 
 					//计算图像坐标与数组坐标
@@ -1753,7 +2321,7 @@ int main() {
 					FlushBatchDraw();
 					_getch();																						//等待用户按键
 					game_over = true;																				//结束游戏
-					break;																	
+					break;
 				}
 				else if (!game_time_running) {																		//倒计时结束强制换边
 					//超时发生：先发送超时消息（联网模式下），再执行本地换边
@@ -1773,7 +2341,7 @@ int main() {
 						Turn_Timer_Start();																			//重置本地计时器
 						Clear_Highlight(board);																		//清除高光
 						FlushBatchDraw();
-					};
+						};
 
 					handleTimeout();																				//执行换边																	
 				}
@@ -1789,12 +2357,22 @@ int main() {
 		case SETTING:
 		{
 			//SETTING绘制与功能函数
+			flushmessage();															//清空所有待处理消息
+			Draw_Setting();
+			FlushBatchDraw();
 
-			flushmessage();          // 清空所有待处理消息
-
-			cleardevice();	//清空画面
-
-			FlushBatchDraw();	//刷新显示
+			ExMessage msg;
+			while (currentState == SETTING) {
+				getmessage(&msg, EX_MOUSE | EX_KEY);
+				if (msg.message == WM_KEYDOWN && msg.vkcode == VK_ESCAPE) {
+					currentState = MENU;
+					break;
+				}
+				if (Back_Switch(msg, &img_universal_background) == MAIN_BACK) {
+					currentState = MENU;
+					break;
+				}
+			}
 
 			break;
 		}
