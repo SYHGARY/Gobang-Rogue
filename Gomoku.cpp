@@ -193,8 +193,8 @@ int button_setting_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTO
 int button_music_x = BOARD_SIZE + INFO_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE - BUTTON_GAP - BUTTON_SIZE / 2;	//音乐按钮X坐标 -> 第三个按钮
 
 int button_playingall_y = BOARD_SIZE - BUTTON_POS - BUTTON_SIZE;																	//所有按钮Y坐标
-int game_hover_button = -1;			//当前悬停的游戏功能按钮
-int game_pressed_button = -1;			//当前按压的游戏功能按钮
+int game_hover_button = -1;																											//当前悬停的游戏功能按钮
+int game_pressed_button = -1;																										//当前按压的游戏功能按钮
 
 
 //游戏功能相关公共变量
@@ -229,23 +229,23 @@ bool Input_Box();
 void Draw_Board();	//五子棋盘绘制函数
 void Draw_Info();	//信息区域绘制函数
 void Draw_Game_Button(int button_index, int button_state);						//游戏功能按钮绘制函数
-void Draw_All_Game_Buttons(int button_state);							//绘制全部游戏功能按钮
-int Game_Hit_Button(int x, int y);									//游戏功能按钮命中判断函数
-int Game_Button_Switch(ExMessage msg);							//游戏功能按钮交互函数
+void Draw_All_Game_Buttons(int button_state);									//绘制全部游戏功能按钮
+int Game_Hit_Button(int x, int y);												//游戏功能按钮命中判断函数
+int Game_Button_Switch(ExMessage msg);											//游戏功能按钮交互函数
 void Draw_Text_Page(const TCHAR* title, const TCHAR* content);					//通用文字页面绘制函数
-void Draw_Instruction();												//游戏说明界面绘制函数
-void Draw_Setting();													//游戏设置界面绘制函数
-void Draw_Message_Page(const TCHAR* message);							//提示页面绘制函数
-void Draw_Back_Button(int button_state, IMAGE* background_img);			//返回按钮绘制函数
-int Back_Switch(ExMessage msg, IMAGE* background_img);					//返回按钮交互函数
+void Draw_Instruction();														//游戏说明界面绘制函数
+void Draw_Setting();															//游戏设置界面绘制函数
+void Draw_Message_Page(const TCHAR* message);									//提示页面绘制函数
+void Draw_Back_Button(int button_state, IMAGE* background_img);					//返回按钮绘制函数
+int Back_Switch(ExMessage msg, IMAGE* background_img);							//返回按钮交互函数
 
-void Draw_Highlight(int x, int y, int Board[LINE_NUM][LINE_NUM]);	//绘制高光函数
-void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]);				//清理高光函数（局部重绘提高效率）
-void Player_Point(int player);										//玩家指向函数
+void Draw_Highlight(int x, int y, int Board[LINE_NUM][LINE_NUM]);				//绘制高光函数
+void Clear_Highlight(int Board[LINE_NUM][LINE_NUM]);							//清理高光函数（局部重绘提高效率）
+void Player_Point(int player);													//玩家指向函数
 
-void Turn_Timer_Start();											//回合计时初始化函数
-void Turn_Timer_Update(int player);									//回合剩余时间计算函数
-void Turn_Draw_Timer(int player);									//绘制倒计时函数
+void Turn_Timer_Start();														//回合计时初始化函数
+void Turn_Timer_Update(int player);												//回合剩余时间计算函数
+void Turn_Draw_Timer(int player);												//绘制倒计时函数
 
 int Judge_Win_Chess(int Board[LINE_NUM][LINE_NUM], int x, int y, int player);	//判断游戏结束函数（这里的X，Y代表的是现在下的棋的位置，因为其实只有现在下的棋改变了棋盘的状态，提高搜索效率）
 int Judge_Win_Timer(int player);												//时间判断游戏结束函数
@@ -1746,6 +1746,12 @@ bool Create_Server() {
 	ServerAddr.sin_addr.s_addr = INADDR_ANY;	//监听所有网卡
 	ServerAddr.sin_port = htons(PORT);			//监听端口
 
+	//设置端口复用，允许立即重用 TIME_WAIT 状态的端口，防止第二次创建服务器失败
+	int reuse = 1;
+	if (setsockopt(ServerSocket, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, sizeof(reuse)) == SOCKET_ERROR) {
+		printf_s("设置端口复用失败：%d\n", WSAGetLastError());
+	}
+
 	//3、绑定本地地址（IP地址与端口于套接字），告诉其他主机该主机位置
 	if (bind(ServerSocket, (sockaddr*)&ServerAddr, sizeof(ServerAddr)) == SOCKET_ERROR) {	//SOCKET_ERROR值是-1，若成功返回应该是0
 		printf_s("Socket绑定失败：%d\n", WSAGetLastError());
@@ -1826,6 +1832,9 @@ bool Accept_Connection() {
 	}
 
 	printf("连接已建立\n");
+	//关闭监听套接字，释放端口资源，避免后续干扰
+	closesocket(ServerSocket);
+	ServerSocket = INVALID_SOCKET;
 	return true;
 }
 
@@ -1892,6 +1901,7 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
 		{
 			printf_s("对方断开连接\n");
 			isConnected = false;
+			game_over = true;						//表示游戏结束，强制退出游戏
 			break;
 		}
 		case MSG_TIMEOUT:
@@ -1900,7 +1910,7 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
 
 				//执行与本地超时相同的换边逻辑
 				player = BLACK + WHITE - player;
-				isMyturn = !isMyturn;               //翻转回合标志
+				isMyturn = !isMyturn;				 //翻转回合标志
 				Turn_Timer_Start();                  //重置本地计时器
 				Clear_Highlight(Board);
 				FlushBatchDraw();
@@ -2164,10 +2174,22 @@ int main() {
 			game_remain_time = time(NULL);						//初始化总游戏时间开始
 			Turn_Timer_Start();									//初始化计时器
 
-			flushmessage();          // 清空所有待处理消息
+			//服务器强制黑棋先手，防止逻辑紊乱
+			if (NetworkMode == NETWORK_MODE_SERVER) {
+				isMyturn = true;
+			}
+			else if (NetworkMode == NETWORK_MODE_CLIENT) {
+				isMyturn = false;
+			}
+			else {
+				isMyturn = true;
+			}
+
+			flushmessage();										//清空所有待处理消息
 			cleardevice();										//清空画面
 			Draw_Board();										//绘制棋盘
 			Draw_Info();										//绘制信息区
+			FlushBatchDraw();
 
 			//=============================/二、游戏主体/=============================
 
@@ -2185,9 +2207,6 @@ int main() {
 				if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
 					Network_Mode_Event(board, player, isMyturn, game_over);
 				}
-				if (NetworkMode != NETWORK_MODE_LOCAL && !isMyturn) {												//网络模式检查是否是我方下棋（不是则循环跳过）
-					continue;
-				}
 
 				//处理本地的鼠标信号
 				ExMessage msg;
@@ -2197,6 +2216,12 @@ int main() {
 
 					int game_button_result = Game_Button_Switch(msg);
 					if (game_button_result == GAME_BUTTON_RESTART) {
+
+						//网络模式下不准重启
+						if (NetworkMode != NETWORK_MODE_LOCAL) {												//网络模式检查是否是我方下棋（不是则循环跳过）
+							continue;
+						}
+
 						printf("重启游戏\n");
 						Restart_Game(board, &player);																//重启游戏
 						continue;
@@ -2217,9 +2242,34 @@ int main() {
 					}
 					else if (game_button_result == GAME_BUTTON_EXIT) {
 						printf("跳转到主页面\n");
-						currentState = MENU;																//跳转至主页面
+
+						//通知对方退出
+						if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
+							NetworkMessage quitMsg;
+							quitMsg.msgtype = MSG_QUIT;
+							Send_Network_Message(ClientSocket, quitMsg);
+						}
+
+						//清理网络资源，释放端口
+						if (ClientSocket != INVALID_SOCKET) {
+							closesocket(ClientSocket);
+							ClientSocket = INVALID_SOCKET;
+						}
+						if (ServerSocket != INVALID_SOCKET) {
+							closesocket(ServerSocket);
+							ServerSocket = INVALID_SOCKET;
+						}
+						isConnected = false;
+						NetworkMode = NETWORK_MODE_LOCAL;   // 重置为本地模式，避免干扰后续操作
+
+						currentState = MENU;																			//跳转至主页面
 						Restart_Game(board, &player);
 						break;
+					}
+
+					//限制下棋
+					if (NetworkMode != NETWORK_MODE_LOCAL && !isMyturn) {												//网络模式检查是否是我方下棋（不是则循环跳过）
+						continue;
 					}
 
 					//计算图像坐标与数组坐标
