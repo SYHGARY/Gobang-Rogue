@@ -692,18 +692,150 @@ void Draw_Text_Page(const TCHAR* title, const TCHAR* content) {
 
 void Draw_Instruction() {
 
-	Draw_Text_Page(
-		_T("玩法介绍"),
-		_T("双击棋盘交叉点落子，先连成五子的一方获胜。游戏中可使用右下方按钮返回主菜单。")
-	);
+	setbkcolor(RGB(255, 255, 255));
+	cleardevice();
+	setorigin(0, 0);
+	putimage(0, 0, &img_universal_background);
+
+	// ---------- 卡片参数 ----------
+	int card_width = 600;
+	int card_height = 420;   // 略微增高以容纳更大行距
+	int card_left = (BOARD_SIZE + INFO_SIZE - card_width) / 2;
+	int card_top = (BOARD_SIZE - card_height) / 2;
+	int card_right = card_left + card_width;
+	int card_bottom = card_top + card_height;
+
+	// ---------- 绘制半透明白色卡片 ----------
+	setlinestyle(PS_SOLID, 2);
+	setlinecolor(RGB(200, 200, 200));
+	setfillcolor(RGB(255, 255, 255, 220));
+	fillroundrect(card_left, card_top, card_right, card_bottom, 20, 20);
+	roundrect(card_left, card_top, card_right, card_bottom, 20, 20);
+
+	// ---------- 标题 ----------
+	setbkmode(TRANSPARENT);
+	LOGFONT fontStyle;
+	gettextstyle(&fontStyle);
+	fontStyle.lfQuality = ANTIALIASED_QUALITY;
+	fontStyle.lfWeight = FONT_WEIGHT;             // 加粗
+	fontStyle.lfHeight = PIECE_SIZE * 0.85;       // 约34px
+	_tcscpy_s(fontStyle.lfFaceName, _T("微软雅黑"));
+	settextstyle(&fontStyle);
+	settextcolor(RGB(30, 30, 30));
+
+	int title_x = card_left + (card_width - textwidth(_T("🎯 玩法介绍"))) / 2;
+	int title_y = card_top + 30;
+	outtextxy(title_x, title_y, _T("🎯 玩法介绍"));
+
+	// 标题下划线
+	setlinecolor(RGB(180, 180, 180));
+	setlinestyle(PS_SOLID, 1);
+	line(card_left + 40, title_y + 45, card_right - 40, title_y + 45);
+
+	// ---------- 内容（列表） ----------
+	fontStyle.lfWeight = FONT_WEIGHT;             // 正文加粗
+	fontStyle.lfHeight = PIECE_SIZE * 0.55;       // 约22px
+	settextstyle(&fontStyle);
+	settextcolor(RGB(50, 50, 50));
+
+	const TCHAR* lines[] = {
+		_T("● 双击棋盘交叉点落子"),
+		_T("● 黑棋先行，白棋后手"),
+		_T("● 率先在横、竖、斜方向连成五子的一方获胜"),
+		_T("● 每方总时间 10 分钟，单步限时 30 秒"),
+		_T("● 点击右下角按钮可退出或重启游戏")
+	};
+	int line_count = sizeof(lines) / sizeof(lines[0]);
+	int line_spacing = 40;   // 增大行距
+	int start_y = title_y + 70;
+
+	for (int i = 0; i < line_count; i++) {
+		int line_x = card_left + 50;
+		int line_y = start_y + i * line_spacing;
+		outtextxy(line_x, line_y, lines[i]);
+	}
+
+	// ---------- 返回按钮 ----------
+	back_hover_button = -1;
+	back_pressed_button = -1;
+	Draw_Back_Button(BUTTON_STATE_NORMAL, &img_universal_background);
 }
 
 void Draw_Setting() {
 
-	Draw_Text_Page(
-		_T("游戏设置"),
-		_T("当前设置页保留音乐开关等后续配置入口。按返回回到主菜单。")
-	);
+	setbkcolor(RGB(255, 255, 255));
+	cleardevice();
+	setorigin(0, 0);
+	putimage(0, 0, &img_universal_background);
+
+	// ---------- 卡片参数 ----------
+	int card_width = 580;   // 稍微加宽适应更大字号
+	int card_height = 380;
+	int card_left = (BOARD_SIZE + INFO_SIZE - card_width) / 2;
+	int card_top = (BOARD_SIZE - card_height) / 2;
+	int card_right = card_left + card_width;
+	int card_bottom = card_top + card_height;
+
+	// ---------- 半透明白色卡片 ----------
+	setlinestyle(PS_SOLID, 2);
+	setlinecolor(RGB(200, 200, 200));
+	setfillcolor(RGB(255, 255, 255, 220));
+	fillroundrect(card_left, card_top, card_right, card_bottom, 20, 20);
+	roundrect(card_left, card_top, card_right, card_bottom, 20, 20);
+
+	// ---------- 标题 ----------
+	setbkmode(TRANSPARENT);
+	LOGFONT fontStyle;
+	gettextstyle(&fontStyle);
+	fontStyle.lfQuality = ANTIALIASED_QUALITY;
+	fontStyle.lfWeight = FONT_WEIGHT;
+	fontStyle.lfHeight = PIECE_SIZE * 0.85;       // 约34px
+	_tcscpy_s(fontStyle.lfFaceName, _T("微软雅黑"));
+	settextstyle(&fontStyle);
+	settextcolor(RGB(30, 30, 30));
+
+	int title_x = card_left + (card_width - textwidth(_T("⚙ 游戏设置"))) / 2;
+	int title_y = card_top + 30;
+	outtextxy(title_x, title_y, _T("⚙ 游戏设置"));
+
+	// 标题下划线
+	setlinecolor(RGB(180, 180, 180));
+	setlinestyle(PS_SOLID, 1);
+	line(card_left + 40, title_y + 45, card_right - 40, title_y + 45);
+
+	// ---------- 设置项 ----------
+	fontStyle.lfWeight = FONT_WEIGHT;             // 加粗
+	fontStyle.lfHeight = PIECE_SIZE * 0.55;       // 约22px
+	settextstyle(&fontStyle);
+	settextcolor(RGB(50, 50, 50));
+
+	int start_y = title_y + 75;
+	int line_spacing = 55;   // 增大行距
+
+	// 第一项：音乐开关
+	TCHAR music_status[50];
+	if (music_flag == 1)
+		wsprintf(music_status, _T("🎵 背景音乐：开启"));
+	else
+		wsprintf(music_status, _T("🔇 背景音乐：关闭"));
+	outtextxy(card_left + 50, start_y, music_status);
+
+	// 第二项：棋盘主题（占位）
+	outtextxy(card_left + 50, start_y + line_spacing, _T("🎨 棋盘主题：木质经典"));
+
+	// 第三项：计时器设置（占位）
+	outtextxy(card_left + 50, start_y + 2 * line_spacing, _T("⏱ 总时间限制：10 分钟 / 单步：30 秒"));
+
+	// 底部小提示（也加粗加大）
+	fontStyle.lfHeight = PIECE_SIZE * 0.45;   // 约18px
+	settextstyle(&fontStyle);
+	settextcolor(RGB(150, 150, 150));
+	outtextxy(card_left + 50, card_bottom - 45, _T("更多设置项将在后续版本中开放"));
+
+	// ---------- 返回按钮 ----------
+	back_hover_button = -1;
+	back_pressed_button = -1;
+	Draw_Back_Button(BUTTON_STATE_NORMAL, &img_universal_background);
 }
 
 void Draw_Message_Page(const TCHAR* message) {
@@ -2081,22 +2213,117 @@ int main() {
 			if (Create_Server()) {
 				printf_s("服务器创建成功，等待客户端连接\n");
 
+				u_long mode = 1;
+				ioctlsocket(ServerSocket, FIONBIO, &mode);	//将服务器套接字设置为非阻塞模式，在循环中检查accpet
+
 				//绘制成功创建服务器提示画面
 				Draw_Message_Page(_T("服务器创建成功，等待连接..."));
 
+				// 定义取消按钮区域
+				int cancel_width = 200;
+				int cancel_height = 50;
+				int cancel_x = (BOARD_SIZE + INFO_SIZE - cancel_width) / 2;
+				int cancel_y = BOARD_SIZE / 2 + 80;
+				int cancel_left = cancel_x, cancel_top = cancel_y;
+				int cancel_right = cancel_x + cancel_width, cancel_bottom = cancel_y + cancel_height;
+				bool cancel_hover = false;
 
-				if (Accept_Connection()) {
-					isMyturn = true;				//我方是服务器，先下棋
-					isConnected = true;				//成功连接
-					printf_s("客户端已连接\n");
+				// 绘制取消按钮
+				setbkmode(TRANSPARENT);
+				settextcolor(RGB(0, 0, 0));
+				LOGFONT fontStyle;
+				gettextstyle(&fontStyle);
+				fontStyle.lfQuality = ANTIALIASED_QUALITY;
+				fontStyle.lfWeight = 0;
+				fontStyle.lfHeight = PIECE_SIZE / 2;
+				_tcscpy_s(fontStyle.lfFaceName, _T("微软雅黑"));
+				settextstyle(&fontStyle);
 
-					//绘制连接成功提示画面
-					Draw_Message_Page(_T("客户端已连接，即将开始游戏"));
+				setfillcolor(RGB(255, 255, 255));
+				setlinecolor(RGB(0, 0, 0));
+				setlinestyle(PS_SOLID, 2);
+				fillroundrect(cancel_x, cancel_y, cancel_right, cancel_bottom, 10, 10);
+				roundrect(cancel_x, cancel_y, cancel_right, cancel_bottom, 10, 10);
+				outtextxy(cancel_x + (cancel_width - textwidth(_T("取消"))) / 2,
+					cancel_y + (cancel_height - textheight(_T("取消"))) / 2, _T("取消"));
+				FlushBatchDraw();
 
-					Sleep(1500);
-					currentState = PLAYING;			//连接成功开始游戏
+
+				bool waiting = true;	//正在等待服务器连接
+				while (waiting) {
+
+					//处理鼠标消息
+					ExMessage msg;
+					if (peekmessage(&msg, EX_MOUSE)) {
+						bool hover = Is_InRect(msg.x, msg.y, cancel_left, cancel_top, cancel_right, cancel_bottom);
+						if (msg.message == WM_MOUSEMOVE) {
+							if (hover != cancel_hover) {
+								cancel_hover = hover;
+								//重绘整个等待界面
+								Draw_Message_Page(_T("服务器创建成功，等待连接..."));
+								//重新绘制取消按钮，根据悬停状态改变颜色
+								if (cancel_hover) {
+									setfillcolor(RGB(235, 235, 235));
+									setlinecolor(RGB(60, 60, 60));
+								}
+								else {
+									setfillcolor(RGB(255, 255, 255));
+									setlinecolor(RGB(0, 0, 0));
+								}
+								setlinestyle(PS_SOLID, 2);
+								fillroundrect(cancel_x, cancel_y, cancel_right, cancel_bottom, 10, 10);
+								roundrect(cancel_x, cancel_y, cancel_right, cancel_bottom, 10, 10);
+								settextcolor(RGB(0, 0, 0));
+								setbkmode(TRANSPARENT);
+								outtextxy(cancel_x + (cancel_width - textwidth(_T("取消"))) / 2,
+									cancel_y + (cancel_height - textheight(_T("取消"))) / 2, _T("取消"));
+								FlushBatchDraw();
+							}
+						}
+						else if (msg.message == WM_LBUTTONUP && hover) {
+							//取消服务器
+							printf("取消服务器\n");
+							closesocket(ServerSocket);
+							ServerSocket = INVALID_SOCKET;
+							isConnected = false;
+							NetworkMode = NETWORK_MODE_LOCAL;
+							waiting = false;
+							currentState = MULTIPLAYER;
+							break;
+						}
+					}
+
+					//非阻塞检查客户端连接
+					sockaddr_in ClientAddr;
+					int addrLen = sizeof(ClientAddr);
+					SOCKET client = accept(ServerSocket, (sockaddr*)&ClientAddr, &addrLen);
+					if (client != INVALID_SOCKET) {
+						//连接成功
+						ClientSocket = client;
+						closesocket(ServerSocket);
+						ServerSocket = INVALID_SOCKET;
+						isConnected = true;
+						isMyturn = true;          //服务端先手
+						waiting = false;
+						Draw_Message_Page(_T("客户端已连接，即将开始游戏"));
+						FlushBatchDraw();
+						Sleep(1500);
+						currentState = PLAYING;
+						break;
+					}
+					else {
+						int err = WSAGetLastError();
+						if (err != WSAEWOULDBLOCK) {
+							//accept 发生错误
+							printf("accept error: %d\n", err);
+							closesocket(ServerSocket);
+							ServerSocket = INVALID_SOCKET;
+							waiting = false;
+							currentState = MULTIPLAYER;
+							break;
+						}
+					}
 				}
-
 			}
 			else {
 				printf_s("服务器创建失败\n");
