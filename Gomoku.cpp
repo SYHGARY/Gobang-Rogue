@@ -28,10 +28,11 @@
 //库链接
 #pragma comment(lib, "ws2_32.lib")	//Winsock2库
 #pragma comment(lib, "winmm.lib")	//连接Windows媒体库，用于播放音乐
-#pragma comment(lib, "Msimg32.lib") // Windows图像处理库
-#pragma comment(lib, "user32.lib")  // 用户界面库
-#pragma comment(lib, "gdi32.lib")   // GDI图形库
+#pragma comment(lib, "Msimg32.lib") //Windows图像处理库
+#pragma comment(lib, "user32.lib")  //用户界面库
+#pragma comment(lib, "gdi32.lib")   //GDI图形库
 #pragma comment(lib, "Shcore.lib")
+#pragma comment(linker, "/subsystem:windows")	//隐藏控制台
 
 //=====================/常量设定/=====================
 
@@ -2173,7 +2174,7 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
 
 
 //=====================/主函数/=====================
-int main() {
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
 
 	if (!Init_Winsock()) return -1;									//初始化Winsock
 
