@@ -271,8 +271,12 @@ bool Create_Server();																						//创建服务器（服务端）
 bool Connect_Server(const char* ip, int port);																//连接服务器（客户端）
 bool Accept_Connection();																					//同意连接（服务端）
 bool Send_Network_Message(SOCKET socket, const NetworkMessage& msg);										//传输数据（客户端）
+bool Send_All(SOCKET s, const char* data, int len);															//使用可靠的TCP发送
 bool Receive_Network_Message(SOCKET socket, NetworkMessage& msg);											//接收数据（服务端）
 void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMyturn, bool& game_over);		//网络模式对战处理
+
+//7、程序健壮性函数声明
+bool Is_Valid_Move_Message(const NetworkMessage& msg);														//防止对方发送错误下棋信号
 
 //=====================/函数具体内容/=====================
 
@@ -735,7 +739,7 @@ void Draw_Instruction() {
 	// ---------- 绘制半透明白色卡片 ----------
 	setlinestyle(PS_SOLID, 2);
 	setlinecolor(RGB(200, 200, 200));
-	setfillcolor(RGB(255, 255, 255, 220));
+	setfillcolor(RGB(255, 255, 255));
 	fillroundrect(card_left, card_top, card_right, card_bottom, 20, 20);
 	roundrect(card_left, card_top, card_right, card_bottom, 20, 20);
 
@@ -1001,7 +1005,10 @@ int Multi_Switch(ExMessage msg) {
 
 bool Input_Box() {
 
+	//初始化填入框
+	inputStr[0] = L'0';
 	int index = 0;
+
 	//输入框尺寸
 	int inputBoxWidth = 400;
 	int inputBoxHeight = 50;
@@ -1070,7 +1077,11 @@ bool Input_Box() {
 			//键盘信息
 			if (msg.message == WM_KEYDOWN) {
 				if (msg.vkcode == VK_RETURN) {							//回车确认
-					return true;
+					return index > 0;									//防止空输入
+				}
+				else if (msg.vkcode == VK_ESCAPE) {						//ESC全部删除并退出
+					inputStr[0] = L'\0';
+					return false;
 				}
 				else if (msg.vkcode == VK_BACK && index > 0) {			//删除字符
 					inputStr[--index] = _T('\0');
@@ -1900,29 +1911,39 @@ void Restart_Game(int Board[LINE_NUM][LINE_NUM], int* player) {
 //6、网络功能函数
 bool Parse_IPPort(const char* input, char* ip, int host_len, int& port) {
 
-	// 查找冒号
+	//空输入驳回
+	if (input == NULL || input[0] == '\0') {
+		return false;
+	}
+
+	//查找冒号
 	const char* colon = strchr(input, ':');
 	if (colon == NULL) {
-		// 没有冒号，整个字符串为主机名，使用默认端口
+		//没有冒号，整个字符串为主机名，使用默认端口
+		if (input[0] == '\0') return false;
 		strncpy_s(ip, host_len, input, _TRUNCATE);
-		port = PORT;  // 默认端口
+		port = PORT;  //默认端口
 		return true;
 	}
 
-	// 分离主机部分
+	//分离主机部分
 	int host_part_len = colon - input;
+	//冒号前为空驳回
+	if (host_part_len <= 0 || host_part_len >= host_len) {
+		return false;
+	}
 	if (host_part_len >= host_len) {
 		return false;  // 主机名太长
 	}
 	strncpy_s(ip, host_len, input, host_part_len);
 	ip[host_part_len] = '\0';
 
-	// 解析端口部分
+	//解析端口部分
 	const char* port_str = colon + 1;
 	char* endptr;
 	long p = strtol(port_str, &endptr, 10);
 	if (*endptr != '\0' || p <= 0 || p > 65535) {
-		return false;  // 端口无效
+		return false;  //端口无效
 	}
 	port = (int)p;
 	return true;
@@ -1980,7 +2001,7 @@ bool Create_Server() {
 
 	//4、开始监听
 	if (listen(ServerSocket, 1) == SOCKET_ERROR) {
-		printf_s("监听失败：%d\n");
+		printf_s("监听失败：%d\n", WSAGetLastError());
 		closesocket(ServerSocket);	//释放Socket
 		return false;
 	}
@@ -2032,7 +2053,7 @@ bool Connect_Server(const char* ip, int port) {
 		return false;
 	}
 
-	printf("客户端成功连接%s:%d，等待服务器接受...\n", ip, PORT);
+	printf("客户端成功连接%s:%d，等待服务器接受...\n", ip, port);
 	return true;
 }
 
@@ -2054,10 +2075,19 @@ bool Accept_Connection() {
 	return true;
 }
 
-bool Send_Network_Message(SOCKET socket, const NetworkMessage& msg) {
+//使用可靠的TCP发送
+bool Send_All(SOCKET s, const char* data, int len) {
+	int sent = 0;
+	while (sent < len) {
+		int n = send(s, data + sent, len - sent, 0);
+		if (n <= 0) return false;
+		sent += n;
+	}
+	return true;
+}
 
-	int ByteSend = send(socket, (const char*)&msg, sizeof(msg), 0);
-	return ByteSend > 0;
+bool Send_Network_Message(SOCKET socket, const NetworkMessage& msg) {
+	return Send_All(socket, reinterpret_cast<const char*>(&msg), sizeof(msg));
 }
 
 bool Receive_Network_Message(SOCKET socket, NetworkMessage& msg) {
@@ -2081,6 +2111,14 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
 		switch (msg.msgtype) {
 		case MSG_MOVE:
 		{
+			//错误的下棋信息不予下棋
+			if (!Is_Valid_Move_Message(msg)) {
+				break;
+			}
+			if (Board[msg.x][msg.y] != EMPTY) {
+				break;
+			}
+
 			if (Board[msg.x][msg.y] == EMPTY) {
 
 				Clear_Highlight(Board);
@@ -2092,7 +2130,7 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
 					Put_Transparent_Image(centerX, centerY, &img_black_opp, &img_black);	//绘制黑棋
 					Board[msg.x][msg.y] = BLACK;
 
-					if (Judge_Win_Chess(Board, msg.x, msg.y, player) == BLACK) {
+					if (Judge_Win_Chess(Board, msg.x, msg.y, msg.player) == msg.player) {
 						choice = _getch();	//判断输赢
 					}
 					player = WHITE;	//棋方转换
@@ -2101,7 +2139,7 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
 					Put_Transparent_Image(centerX, centerY, &img_white_opp, &img_white);
 					Board[msg.x][msg.y] = WHITE;
 
-					if (Judge_Win_Chess(Board, msg.x, msg.y, player) == WHITE) {
+					if (Judge_Win_Chess(Board, msg.x, msg.y, msg.player) == msg.player) {
 						choice = _getch();	//判断输赢
 					}
 					player = BLACK;	//棋方转换
@@ -2171,10 +2209,17 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
 	setorigin(0, 0);	//恢复初始坐标
 }
 
+//7、程序健壮性函数
+bool Is_Valid_Move_Message(const NetworkMessage& msg) {
+	return msg.msgtype == MSG_MOVE &&
+		msg.x >= 0 && msg.x < LINE_NUM &&
+		msg.y >= 0 && msg.y < LINE_NUM &&
+		(msg.player == BLACK || msg.player == WHITE);
+}
 
 
 //=====================/主函数/=====================
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow){
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 
 	if (!Init_Winsock()) return -1;									//初始化Winsock
 
@@ -2465,6 +2510,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			int player = BLACK;									//标记下棋手
 			bool game_over = false;								//游戏结束标志
 			bool timeout_total_sent = false;					//防止重复发送时间耗尽消息
+			//int movecount = 0;									//计算平局
 
 			game_remain_time = time(NULL);						//初始化总游戏时间开始
 			Turn_Timer_Start();									//初始化计时器
@@ -2513,7 +2559,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					if (game_button_result == GAME_BUTTON_RESTART) {
 
 						//网络模式下不准重启
-						if (NetworkMode != NETWORK_MODE_LOCAL) {												
+						if (NetworkMode != NETWORK_MODE_LOCAL) {
 							continue;
 						}
 
@@ -2634,7 +2680,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 								//选择结束模式
 								int over_choice;
-								
+
 								while (true) {
 
 									if (peekmessage(&msg, EX_MOUSE, false)) {
