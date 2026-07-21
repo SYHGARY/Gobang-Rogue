@@ -1,4 +1,4 @@
-# Gobang Rogue – 五子棋 Roguelike
+# ⚫⚪Gobang Rogue – 五子棋 Roguelike
  
 &emsp;![1](https://img.shields.io/badge/language-C++-blue.svg)
 ![2](https://img.shields.io/badge/graphics-EasyX-green.svg)
