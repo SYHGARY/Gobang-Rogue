@@ -328,7 +328,9 @@ void Turn_Draw_Timer(int player) {
         outtextxy((int)timer_black_x, (int)timer_black_y, time_text_round);
         settextcolor(BLACK);
         Clear_Info_Background((int)timer_white_x, (int)timer_white_y, (int)round_time_sizex, (int)round_time_sizey);
-        outtextxy((int)timer_white_x, (int)timer_white_y, L"回合剩余：30秒");
+        wchar_t time_text[40];
+        swprintf(time_text, 40, L"回合剩余：%d秒", turn_time_limit);
+        outtextxy((int)timer_white_x, (int)timer_white_y, time_text);
     } else if (player == WHITE) {
         setlinecolor(RED);
         roundrect(white_timearea_left, white_timearea_top, white_timearea_right, white_timearea_bottom, 15, 15);
@@ -336,7 +338,9 @@ void Turn_Draw_Timer(int player) {
         outtextxy((int)timer_white_x, (int)timer_white_y, time_text_round);
         settextcolor(BLACK);
         Clear_Info_Background((int)timer_black_x, (int)timer_black_y, (int)round_time_sizex, (int)round_time_sizey);
-        outtextxy((int)timer_black_x, (int)timer_black_y, L"回合剩余：30秒");
+        wchar_t time_text[40];
+        swprintf(time_text, 40, L"回合剩余：%d秒", turn_time_limit);
+        outtextxy((int)timer_black_x, (int)timer_black_y, time_text);
     }
 
     static int flash_count = 0;

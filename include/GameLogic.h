@@ -12,4 +12,5 @@ int Judge_Win_Timer(int player);
 
 // 重启与悔棋
 void Restart_Game(int Board[LINE_NUM][LINE_NUM], int* player);
-void Take_Back_Move();   // 占位，未实现
+bool Take_Back_Move(int Board[LINE_NUM][LINE_NUM], int* player);
+bool Take_Back_Moves(int Board[LINE_NUM][LINE_NUM], int* player, int count);

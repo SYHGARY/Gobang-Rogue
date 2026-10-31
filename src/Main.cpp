@@ -236,6 +236,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             bool timeout_total_sent = false;
 
             game_remain_time = time(NULL);
+            time_total_black = game_time_limit;
+            time_total_white = game_time_limit;
+            player_time_running = true;
             Turn_Timer_Start();
 
             if (NetworkMode == NETWORK_MODE_SERVER) isMyturn = true;
@@ -270,7 +273,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         continue;
                     } else if (game_button_result == GAME_BUTTON_TAKEBACK) {
                         printf("悔棋\n");
-                        Take_Back_Move();
+                        if (NetworkMode == NETWORK_MODE_LOCAL)
+                            Take_Back_Move(board, &player);
+                        else if (isConnected && !takeback_pending && !isMyturn &&
+                                 move_history_count > 0 &&
+                                 move_history[move_history_count - 1].player ==
+                                     (NetworkMode == NETWORK_MODE_SERVER ? BLACK : WHITE)) {
+                            NetworkMessage request = {};
+                            request.msgtype = MSG_TAKEBACK_REQUEST;
+                            if (Send_Network_Message(ClientSocket, request))
+                                takeback_pending = true;
+                        }
                         continue;
                     } else if (game_button_result == GAME_BUTTON_MUSIC) {
                         Game_Music_Control(msg);
@@ -312,6 +325,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                             if (player == BLACK) {
                                 Put_Transparent_Image(centerX, centerY, &img_black_opp, &img_black);
                                 board[boardX][boardY] = BLACK;
+                                if (move_history_count < MAX_MOVE_COUNT)
+                                    move_history[move_history_count++] = { boardX, boardY, BLACK };
                                 if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
                                     NetworkMessage turnMsg;
                                     turnMsg.msgtype = MSG_MOVE;
@@ -325,6 +340,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                             } else if (player == WHITE) {
                                 Put_Transparent_Image(centerX, centerY, &img_white_opp, &img_white);
                                 board[boardX][boardY] = WHITE;
+                                if (move_history_count < MAX_MOVE_COUNT)
+                                    move_history[move_history_count++] = { boardX, boardY, WHITE };
                                 if (NetworkMode != NETWORK_MODE_LOCAL && isConnected) {
                                     NetworkMessage turnMsg;
                                     turnMsg.msgtype = MSG_MOVE;
@@ -437,6 +454,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                     currentState = MENU;
                     break;
                 }
+                if (Setting_Switch(msg) == MAIN_SETTING) continue;
             }
             break;
         }

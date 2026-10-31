@@ -7,21 +7,21 @@
 
 void Turn_Timer_Start() {
     turn_start_time = time(NULL);
-    turn_remain_time = TIME_LIMIT;
+    turn_remain_time = turn_time_limit;
     game_time_running = true;
+    turn_passed_last = 0;
 }
 
 void Turn_Timer_Update(int player) {
     if (!game_time_running) return;
     
     time_t current_time = time(NULL);
-    turn_remain_time = TIME_LIMIT - (int)difftime(current_time, turn_start_time);
-    int used_time = TIME_LIMIT - turn_remain_time;
+    turn_remain_time = turn_time_limit - (int)difftime(current_time, turn_start_time);
+    int used_time = turn_time_limit - turn_remain_time;
     if (used_time < 0) used_time = 0;
-    if (used_time > TIME_LIMIT) used_time = TIME_LIMIT;
+    if (used_time > turn_time_limit) used_time = turn_time_limit;
 
     // 静态变量记录本回合已扣除的秒数（累计，跨多次调用）
-    static int turn_passed_last = 0;
     int delta = used_time - turn_passed_last;
     if (delta < 0) delta = 0;
     turn_passed_last = used_time;
@@ -144,10 +144,13 @@ void Restart_Game(int Board[LINE_NUM][LINE_NUM], int* player) {
             Board[i][j] = EMPTY;
     
     *player = BLACK;
-    time_total_black = TIME_LIMIT_TOTAL;
-    time_total_white = TIME_LIMIT_TOTAL;
+    time_total_black = game_time_limit;
+    time_total_white = game_time_limit;
     game_time_running = true;
     player_time_running = true;
+    move_history_count = 0;
+    turn_passed_last = 0;
+    takeback_pending = false;
     Turn_Timer_Start();
     Clear_Highlight(Board);
     
@@ -162,13 +165,55 @@ void Restart_Game(int Board[LINE_NUM][LINE_NUM], int* player) {
     setorigin(0, 0);
     putimage(0, 0, &img_game_background);
     Draw_Board();
+    for (int i = 0; i < move_history_count; i++) {
+        int x = move_history[i].x;
+        int y = move_history[i].y;
+        int centerX = BOARD_MARGIN_REAL + PIECE_SIZE * x - OFFSET;
+        int centerY = BOARD_MARGIN_REAL + PIECE_SIZE * y - OFFSET;
+        if (move_history[i].player == BLACK)
+            Put_Transparent_Image(centerX, centerY, &img_black_opp, &img_black);
+        else
+            Put_Transparent_Image(centerX, centerY, &img_white_opp, &img_white);
+    }
     Draw_Info();
     game_hover_button = -1;
     game_pressed_button = -1;
     FlushBatchDraw();
 }
 
-void Take_Back_Move() {
-    // 占位，未实现
-    return;
+bool Take_Back_Move(int Board[LINE_NUM][LINE_NUM], int* player) {
+    return Take_Back_Moves(Board, player, 1);
+}
+
+bool Take_Back_Moves(int Board[LINE_NUM][LINE_NUM], int* player, int count) {
+    if (Board == NULL || player == NULL || move_history_count <= 0) return false;
+    if (count < 1 || move_history_count < count) return false;
+
+    while (count-- > 0 && move_history_count > 0) {
+        MoveRecord last_move = move_history[move_history_count - 1];
+        if (last_move.x < 0 || last_move.x >= LINE_NUM ||
+            last_move.y < 0 || last_move.y >= LINE_NUM) return false;
+        Board[last_move.x][last_move.y] = EMPTY;
+        *player = last_move.player;
+        move_history_count--;
+    }
+    Turn_Timer_Start();
+
+    setorigin(0, 0);
+    putimage(0, 0, &img_game_background);
+    Draw_Board();
+    for (int i = 0; i < move_history_count; i++) {
+        int x = move_history[i].x;
+        int y = move_history[i].y;
+        int centerX = BOARD_MARGIN_REAL + PIECE_SIZE * x - OFFSET;
+        int centerY = BOARD_MARGIN_REAL + PIECE_SIZE * y - OFFSET;
+        if (move_history[i].player == BLACK)
+            Put_Transparent_Image(centerX, centerY, &img_black_opp, &img_black);
+        else
+            Put_Transparent_Image(centerX, centerY, &img_white_opp, &img_white);
+    }
+    Draw_Info();
+    Clear_Highlight(Board);
+    FlushBatchDraw();
+    return true;
 }

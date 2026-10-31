@@ -91,6 +91,8 @@
 #define MSG_CHAT 2
 #define MSG_TIMEOUT 3
 #define MSG_TIMEOUT_TOTAL 4
+#define MSG_TAKEBACK_REQUEST 5
+#define MSG_TAKEBACK_RESPONSE 6
 
 #define BUTTON_STATE_NORMAL 0
 #define BUTTON_STATE_HOVER 1
@@ -122,8 +124,21 @@ extern int time_total_black;
 extern int time_total_white;
 extern int game_remain_time;
 extern int turn_remain_time;
+extern int game_time_limit;
+extern int turn_time_limit;
 extern bool game_time_running;
 extern bool player_time_running;
+
+struct MoveRecord {
+    int x;
+    int y;
+    int player;
+};
+
+#define MAX_MOVE_COUNT (LINE_NUM * LINE_NUM)
+extern MoveRecord move_history[MAX_MOVE_COUNT];
+extern int move_history_count;
+extern int turn_passed_last;
 
 extern IMAGE img_headline, img_headline_opp, img_menu_background;
 extern IMAGE img_universal_background, img_game_background, img_info_background;
@@ -181,5 +196,6 @@ extern int NetworkMode;
 extern char ServerIP[20];
 extern bool isConnected;
 extern bool isMyturn;
+extern bool takeback_pending;
 
 extern GameState currentState;

@@ -8,8 +8,13 @@ int time_total_black = TIME_LIMIT_TOTAL;
 int time_total_white = TIME_LIMIT_TOTAL;
 int game_remain_time;
 int turn_remain_time;
+int game_time_limit = TIME_LIMIT_TOTAL;
+int turn_time_limit = TIME_LIMIT;
 bool game_time_running = false;
 bool player_time_running = true;
+MoveRecord move_history[MAX_MOVE_COUNT] = {};
+int move_history_count = 0;
+int turn_passed_last = 0;
 
 IMAGE img_headline, img_headline_opp, img_menu_background;
 IMAGE img_universal_background, img_game_background, img_info_background;
@@ -66,5 +71,6 @@ int NetworkMode = NETWORK_MODE_LOCAL;
 char ServerIP[20] = "127.0.0.1";
 bool isConnected = false;
 bool isMyturn = true;
+bool takeback_pending = false;
 
 GameState currentState = MENU;

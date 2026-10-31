@@ -124,6 +124,8 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
             if (msg.player == BLACK) {
                 Put_Transparent_Image(centerX, centerY, &img_black_opp, &img_black);
                 Board[msg.x][msg.y] = BLACK;
+                if (move_history_count < MAX_MOVE_COUNT)
+                    move_history[move_history_count++] = { msg.x, msg.y, BLACK };
                 if (Judge_Win_Chess(Board, msg.x, msg.y, msg.player) == msg.player) {
                     _getch();   // 等待按键继续
                 }
@@ -131,6 +133,8 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
             } else if (msg.player == WHITE) {
                 Put_Transparent_Image(centerX, centerY, &img_white_opp, &img_white);
                 Board[msg.x][msg.y] = WHITE;
+                if (move_history_count < MAX_MOVE_COUNT)
+                    move_history[move_history_count++] = { msg.x, msg.y, WHITE };
                 if (Judge_Win_Chess(Board, msg.x, msg.y, msg.player) == msg.player) {
                     _getch();
                 }
@@ -139,6 +143,32 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
             isMyturn = true;
             Turn_Timer_Start();
             FlushBatchDraw();
+            break;
+        }
+        case MSG_TAKEBACK_REQUEST: {
+            int opponent_player = NetworkMode == NETWORK_MODE_SERVER ? WHITE : BLACK;
+            bool valid_request = isMyturn && move_history_count > 0 &&
+                move_history[move_history_count - 1].player == opponent_player;
+            int result = valid_request
+                ? MessageBoxW(GetHWnd(), L"对方申请悔棋，是否同意？", L"悔棋申请", MB_YESNO | MB_ICONQUESTION | MB_SETFOREGROUND | MB_TOPMOST)
+                : IDNO;
+            NetworkMessage response = {};
+            response.msgtype = MSG_TAKEBACK_RESPONSE;
+            response.player = result == IDYES ? 1 : 0;
+            Send_Network_Message(ClientSocket, response);
+            if (result == IDYES) {
+                Take_Back_Moves(Board, &player, 1);
+                isMyturn = false;
+            }
+            break;
+        }
+        case MSG_TAKEBACK_RESPONSE: {
+            takeback_pending = false;
+            if (msg.player == 1) {
+                Take_Back_Moves(Board, &player, 1);
+                isMyturn = true;
+            }
+            else MessageBoxW(GetHWnd(), L"对方拒绝了悔棋申请。", L"悔棋", MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
             break;
         }
         case MSG_QUIT: {
