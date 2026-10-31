@@ -236,6 +236,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             bool timeout_total_sent = false;
 
             game_remain_time = time(NULL);
+            if (NetworkMode == NETWORK_MODE_SERVER && isConnected) {
+                NetworkMessage settingsMsg = {};
+                settingsMsg.msgtype = MSG_GAME_SETTINGS;
+                settingsMsg.x = game_time_limit;
+                settingsMsg.y = turn_time_limit;
+                Send_Network_Message(ClientSocket, settingsMsg);
+            }
             time_total_black = game_time_limit;
             time_total_white = game_time_limit;
             player_time_running = true;

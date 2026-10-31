@@ -115,6 +115,20 @@ void Network_Mode_Event(int Board[LINE_NUM][LINE_NUM], int& player, bool& isMytu
     NetworkMessage msg;
     if (Receive_Network_Message(ClientSocket, msg)) {
         switch (msg.msgtype) {
+        case MSG_GAME_SETTINGS: {
+            if (NetworkMode == NETWORK_MODE_CLIENT && msg.x > 0 && msg.y > 0) {
+                game_time_limit = msg.x;
+                turn_time_limit = msg.y;
+                time_total_black = game_time_limit;
+                time_total_white = game_time_limit;
+                turn_remain_time = turn_time_limit;
+                player_time_running = true;
+                Turn_Timer_Start();
+                Draw_Info();
+                FlushBatchDraw();
+            }
+            break;
+        }
         case MSG_MOVE: {
             if (!Is_Valid_Move_Message(msg)) break;
             if (Board[msg.x][msg.y] != EMPTY) break;
